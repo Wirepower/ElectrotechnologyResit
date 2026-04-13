@@ -1,4 +1,4 @@
-﻿Public Class EditStudent
+Public Class EditStudent
     Public Property MainFormDataGridView As DataGridView
     ' Define a variable to keep track of the current row index
     Private currentRowIndex As Integer = -1
@@ -26,7 +26,7 @@
         Dim query As String = "SELECT Unit_Code FROM ElectrotechnologyReports.dbo.UEE30820units"
 
         ' Create a SqlConnection
-        Using connection As New SqlConnection(connectionString)
+        Using connection As New SqlConnection(SQLCon.connectionString)
             Try
                 ' Open the connection
                 connection.Open()
@@ -53,10 +53,11 @@
     End Sub
     Private Sub PopulateTeacherComboBox()
         ' Construct the SQL query to retrieve Teacher_Full_Name column from TeacherList table
-        Dim query As String = "SELECT Teacher_Full_Name FROM ElectrotechnologyReports.dbo.TeacherList"
+        Dim query As String = "SELECT Teacher_Full_Name FROM ElectrotechnologyReports.dbo.TeacherList ORDER BY Teacher_Full_Name ASC"
+
 
         ' Create a SqlConnection
-        Using connection As New SqlConnection(connectionString)
+        Using connection As New SqlConnection(SQLCon.connectionString)
             Try
                 ' Open the connection
                 connection.Open()
@@ -93,10 +94,10 @@
                 ComboBox3.Text = If(row.Cells("AttemptNo").Value IsNot Nothing, row.Cells("AttemptNo").Value.ToString(), "")
                 ComboBox5.Text = If(row.Cells("EnergyspaceCreated").Value IsNot Nothing, row.Cells("EnergyspaceCreated").Value.ToString(), "")
                 ComboBox4.Text = If(row.Cells("EnergyspaceAssessmentBooked").Value IsNot Nothing, row.Cells("EnergyspaceAssessmentBooked").Value.ToString(), "")
-                Label13.Text = If(row.Cells("BlockGroup").Value IsNot Nothing, row.Cells("BlockGroup").Value.ToString(), "")
+                txtBlockgroup.Text = If(row.Cells("Blockgroup").Value IsNot Nothing, row.Cells("Blockgroup").Value.ToString(), "")
 
                 ' Handle DateTimePicker value separately
-                Dim resitDateValue = row.Cells("Resit Date").Value
+                Dim resitDateValue = row.Cells("Resit date").Value
                 If resitDateValue IsNot Nothing AndAlso TypeOf resitDateValue IsNot DBNull Then
                     DateTimePicker1.Value = Convert.ToDateTime(resitDateValue)
                 Else
@@ -126,8 +127,10 @@
     End Sub
 
     Private Sub Button1_Click(sender As Object, e As EventArgs) Handles Button1.Click
-        Dim energySpaceCreated As Boolean = ComboBox5.Text
-        Dim energySpaceAssessmentBooked As Boolean = ComboBox4.Text
+        Dim energySpaceCreated As Boolean
+        Dim energySpaceAssessmentBooked As Boolean
+        If Not Boolean.TryParse(ComboBox5.Text, energySpaceCreated) Then energySpaceCreated = False
+        If Not Boolean.TryParse(ComboBox4.Text, energySpaceAssessmentBooked) Then energySpaceAssessmentBooked = False
 
         ' Update data in the current row of the DataGridView
         If currentRowIndex >= 0 AndAlso currentRowIndex < MainFormDataGridView.Rows.Count Then
@@ -143,12 +146,12 @@
             row.Cells("AttemptNo").Value = ComboBox3.Text
             row.Cells("EnergyspaceCreated").Value = ComboBox5.Text
             row.Cells("EnergyspaceAssessmentBooked").Value = ComboBox4.Text
-            row.Cells("Resit Date").Value = DateTimePicker1.Value.ToString("yyyy-MM-dd")
-            row.Cells("Blockgroup").Value = Label13.Text
+            row.Cells("Resit date").Value = DateTimePicker1.Value.ToString("yyyy-MM-dd")
+            row.Cells("Blockgroup").Value = txtBlockgroup.Text
 
             ' Update the corresponding row in the SQL table
             Try
-                Using connection As New SqlConnection(connectionString)
+                Using connection As New SqlConnection(SQLCon.connectionString)
                     connection.Open()
                     Dim updateCommand As String = "UPDATE ElectrotechnologyReports.dbo.ElectricalResit SET [Student Firstname] = @StudentFirstname, " &
                                               "[Student Surname] = @StudentSurname, " &
@@ -160,7 +163,7 @@
                                               "AttemptNo = @AttemptNo, " &
                                               "EnergyspaceCreated = @EnergyspaceCreated, " &
                                               "EnergyspaceAssessmentBooked = @EnergyspaceAssessmentBooked, " &
-                                              "[Resit Date] = @ResitDate, " &
+                                              "[Resit date] = @ResitDate, " &
                                               "Blockgroup = @Blockgroup " &
                                               "WHERE [Student ID] = @StudentID"
 
@@ -178,7 +181,7 @@
                         command.Parameters.AddWithValue("@EnergyspaceCreated", energySpaceCreated)
                         command.Parameters.AddWithValue("@EnergyspaceAssessmentBooked", energySpaceAssessmentBooked)
                         command.Parameters.AddWithValue("@ResitDate", DateTimePicker1.Value)
-                        command.Parameters.AddWithValue("@Blockgroup", Label13.Text)
+                        command.Parameters.AddWithValue("@Blockgroup", txtBlockgroup.Text)
 
                         ' Execute the command
                         command.ExecuteNonQuery()
@@ -202,7 +205,7 @@
         Dim query As String = "SELECT Email FROM ElectrotechnologyReports.dbo.TeacherList WHERE Teacher_Full_Name = @TeacherFullName"
 
         ' Create a SqlConnection
-        Using connection As New SqlConnection(connectionString)
+        Using connection As New SqlConnection(SQLCon.connectionString)
             Try
                 ' Open the connection
                 connection.Open()
@@ -233,7 +236,7 @@
         Dim query As String = "SELECT Unit_Title FROM ElectrotechnologyReports.dbo.UEE30820units WHERE Unit_Code = @UnitCode"
 
         ' Create a SqlConnection
-        Using connection As New SqlConnection(connectionString)
+        Using connection As New SqlConnection(SQLCon.connectionString)
             Try
                 ' Open the connection
                 connection.Open()
@@ -280,7 +283,7 @@
         Dim query As String = "SELECT [Student Given Name], [Student Family Name], [Student Personal Email], [Block Group Code] FROM ElectrotechnologyReports.dbo.AgreementsDetails WHERE [Student ID] = @StudentID"
 
         ' Create a SqlConnection
-        Using connection As New SqlConnection(connectionString)
+        Using connection As New SqlConnection(SQLCon.connectionString)
             Try
                 ' Open the connection
                 connection.Open()
@@ -302,9 +305,9 @@
                         TextBox3.Text = reader("Student Given Name").ToString()
                         TextBox4.Text = reader("Student Family Name").ToString()
                         TextBox5.Text = reader("Student Personal Email").ToString()
-                        Label13.Text = reader("Block Group Code").ToString()
-                        ComboBox5.Text = False
-                        ComboBox4.Text = False
+                        txtBlockgroup.Text = reader("Block Group Code").ToString()
+                        ComboBox5.Text = "False"
+                        ComboBox4.Text = "False"
                     Else
                         ' If no record found, display a message
                         MessageBox.Show("No record found for the provided Student ID.")
@@ -312,7 +315,7 @@
                         TextBox3.Clear()
                         TextBox4.Clear()
                         TextBox5.Clear()
-                        Label13.Text = ""
+                        txtBlockgroup.Text = ""
                     End If
 
                     ' Close the data reader

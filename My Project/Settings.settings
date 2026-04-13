@@ -1,0 +1,18 @@
+<?xml version='1.0' encoding='utf-8'?>
+<SettingsFile xmlns="http://schemas.microsoft.com/VisualStudio/2004/01/settings" CurrentProfile="(Default)" GeneratedClassNamespace="My" GeneratedClassName="MySettings" UseMySettingsClassName="true">
+  <Profiles />
+  <Settings>
+    <Setting Name="SQLConnection" Type="System.String" Scope="User">
+      <Value Profile="(Default)">Server=DEVSQLCENTRAL.AD.VU.EDU.AU;Integrated Security=True;Connect Timeout=30;Encrypt=True;TrustServerCertificate=True;Multi Subnet Failover=False;</Value>
+    </Setting>
+    <Setting Name="PcLoginMonthlyPassword" Type="System.String" Scope="User">
+      <Value Profile="(Default)">Futur9999stud9nt87</Value>
+    </Setting>
+    <Setting Name="ResitLoginWordTemplatePath" Type="System.String" Scope="User">
+      <Value Profile="(Default)" />
+    </Setting>
+    <Setting Name="ResitLoginOpenDocumentAfterSave" Type="System.Boolean" Scope="User">
+      <Value Profile="(Default)">False</Value>
+    </Setting>
+  </Settings>
+</SettingsFile>

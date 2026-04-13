@@ -23,7 +23,6 @@ Partial Class EditStudent
     <System.Diagnostics.DebuggerStepThrough()> _
     Private Sub InitializeComponent()
         Label15 = New Label()
-        Label13 = New Label()
         Label11 = New Label()
         Label10 = New Label()
         Label9 = New Label()
@@ -52,6 +51,7 @@ Partial Class EditStudent
         lblUnit = New Label()
         lblTeacherEmail = New Label()
         Button5 = New Button()
+        txtBlockgroup = New TextBox()
         SuspendLayout()
         ' 
         ' Label15
@@ -64,16 +64,6 @@ Partial Class EditStudent
         Label15.Size = New Size(270, 32)
         Label15.TabIndex = 54
         Label15.Text = "Edit a Existing Student"
-        ' 
-        ' Label13
-        ' 
-        Label13.BackColor = SystemColors.ButtonHighlight
-        Label13.BorderStyle = BorderStyle.FixedSingle
-        Label13.Location = New Point(184, 441)
-        Label13.Name = "Label13"
-        Label13.Size = New Size(157, 23)
-        Label13.TabIndex = 52
-        Label13.TextAlign = ContentAlignment.MiddleCenter
         ' 
         ' Label11
         ' 
@@ -312,11 +302,19 @@ Partial Class EditStudent
         Button5.Text = "Search"
         Button5.UseVisualStyleBackColor = True
         ' 
+        ' txtBlockgroup
+        ' 
+        txtBlockgroup.Location = New Point(186, 444)
+        txtBlockgroup.Name = "txtBlockgroup"
+        txtBlockgroup.Size = New Size(155, 23)
+        txtBlockgroup.TabIndex = 61
+        ' 
         ' EditStudent
         ' 
         AutoScaleDimensions = New SizeF(7F, 15F)
         AutoScaleMode = AutoScaleMode.Font
         ClientSize = New Size(530, 569)
+        Controls.Add(txtBlockgroup)
         Controls.Add(Button5)
         Controls.Add(lblUnit)
         Controls.Add(lblTeacherEmail)
@@ -324,7 +322,6 @@ Partial Class EditStudent
         Controls.Add(Button4)
         Controls.Add(Button3)
         Controls.Add(Label15)
-        Controls.Add(Label13)
         Controls.Add(Label11)
         Controls.Add(Label10)
         Controls.Add(Label9)
@@ -354,7 +351,6 @@ Partial Class EditStudent
     End Sub
 
     Friend WithEvents Label15 As Label
-    Friend WithEvents Label13 As Label
     Friend WithEvents Label11 As Label
     Friend WithEvents Label10 As Label
     Friend WithEvents Label9 As Label
@@ -383,4 +379,5 @@ Partial Class EditStudent
     Friend WithEvents lblUnit As Label
     Friend WithEvents lblTeacherEmail As Label
     Friend WithEvents Button5 As Button
+    Friend WithEvents txtBlockgroup As TextBox
 End Class

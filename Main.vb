@@ -1,10 +1,11 @@
-﻿'Imports System.Data.SqlClient
+'Imports System.Data.SqlClient
+Imports System.Diagnostics
 Imports System.IO
 Imports System.Net
 Imports Microsoft.Win32
 Imports Microsoft.Data.SqlClient
-'Imports Outlook = Microsoft.Office.Interop.Outlook
-Imports Microsoft.Office.interop.Outlook
+Imports Microsoft.VisualBasic
+Imports System.Runtime.InteropServices
 Imports System.Drawing.Drawing2D
 Imports System.Drawing.Printing
 Imports OfficeOpenXml
@@ -28,7 +29,8 @@ Public Class Main
 
     Private Sub Button1_Click(sender As Object, e As EventArgs) Handles Button1.Click
         NewStudent.Show()
-        UpdateDataGridView()
+        NewStudent.DateTimePicker1.Value = DateTimePicker1.Value
+        'UpdateDataGridView()
     End Sub
 
     Private Sub Button2_Click(sender As Object, e As EventArgs) Handles Button2.Click
@@ -48,8 +50,12 @@ Public Class Main
         'connection = SQLCon.GetConnection()
         'SQLCon.OpenConnection(connection)
         Dim result As DialogResult = MessageBox.Show("Are you Connected to the VPN", "VPN Connection", MessageBoxButtons.YesNo)
-
-
+        Dim SQLConnection As DialogResult = MessageBox.Show("Are you having SQL connection issues", "SQL Connection", MessageBoxButtons.YesNo)
+        If SQLConnection = vbYes Then
+            Settings.Show()
+            Me.Hide()
+            Exit Sub
+        End If
         If result = vbYes Then
 
 
@@ -93,9 +99,11 @@ Public Class Main
             FilterData()
         Else
             MessageBox.Show("Closing Application, Connect to VPN and re-open Application", "Exiting Application")
-            System.Environment.Exit(0)
+            Settings.Show()
+            'System.Environment.Exit(0)
         End If
     End Sub
+
     Public Sub UpdateDataGridView()
         ' Construct the SQL query to fetch data from the ElectricalResit table
         Dim query As String = "SELECT * FROM ElectrotechnologyReports.dbo.ElectricalResit"
@@ -104,7 +112,7 @@ Public Class Main
         Dim dataTable As New DataTable()
 
         ' Create a SqlConnection
-        Using connection As New SqlConnection(connectionString)
+        Using connection As New SqlConnection(SQLCon.connectionString)
             Try
                 ' Open the connection
                 connection.Open()
@@ -137,7 +145,7 @@ Public Class Main
     End Sub
     Private Sub DeleteRecordFromDatabase(studentID As String)
         ' Assuming you have a SqlConnection object named 'connection' already defined
-        Using connection As New SqlConnection(connectionString)
+        Using connection As New SqlConnection(SQLCon.connectionString)
             ' Open the connection
             connection.Open()
 
@@ -155,52 +163,40 @@ Public Class Main
         End Using
     End Sub
     Private Sub Button3_Click(sender As Object, e As EventArgs) Handles Button3.Click
-        ' Check if any row is selected
-        If DataGridView1.SelectedRows.Count > 0 Then
-            ' Get the selected row
-            Dim selectedRow As DataGridViewRow = DataGridView1.SelectedRows(0)
-
-            ' Retrieve the student ID from the selected row
-            Dim studentID As String = selectedRow.Cells("Student ID").Value.ToString()
-
-            ' Remove the selected row from the DataGridView
-            DataGridView1.Rows.Remove(selectedRow)
-
-            ' Delete the corresponding record from the SQL Server database
-            DeleteRecordFromDatabase(studentID)
-        Else
+        If DataGridView1.SelectedRows.Count = 0 Then
             MessageBox.Show("Please select a row to delete.")
+            Return
         End If
-        'UpdateDataGridView()
+        Dim selectedRow As DataGridViewRow = DataGridView1.SelectedRows(0)
+        Dim studentID As String = selectedRow.Cells("Student ID").Value.ToString()
+        If MessageBox.Show("Delete this student record permanently?", "Confirm delete", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) <> DialogResult.Yes Then
+            Return
+        End If
+        Try
+            DeleteRecordFromDatabase(studentID)
+            DataGridView1.Rows.Remove(selectedRow)
+        Catch ex As Exception
+            MessageBox.Show("Could not delete from the database: " & ex.Message, "Delete failed", MessageBoxButtons.OK, MessageBoxIcon.Error)
+        End Try
     End Sub
 
     Private Sub Button4_Click(sender As Object, e As EventArgs) Handles Button4.Click
-        ' Get the selected date from the DateTimePicker
         Dim selectedDate As Date = DateTimePicker1.Value.Date
-
-        ' Convert the selected date to the appropriate format for SQL
-        Dim formattedDate As String = selectedDate.ToString("yyyy-MM-dd")
-
-        ' Delete records from the SQL Server database where the Resit date matches the selected date
-        DeleteRecordsFromDatabase(formattedDate)
-        MsgBox("All " & selectedDate & " data has been deleted")
+        If MessageBox.Show("Delete ALL resit bookings for " & selectedDate.ToString("D") & "? This cannot be undone.", "Confirm delete", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) <> DialogResult.Yes Then
+            Return
+        End If
+        DeleteRecordsFromDatabase(selectedDate)
+        MessageBox.Show("All data for " & selectedDate.ToString("D") & " has been deleted.", "Done", MessageBoxButtons.OK, MessageBoxIcon.Information)
         UpdateDataGridView()
     End Sub
-    Private Sub DeleteRecordsFromDatabase(selectedDate As String)
-        ' Assuming you have a SqlConnection object named 'connection' already defined
-        Using connection As New SqlConnection(connectionString)
-            ' Open the connection
+    Private Sub DeleteRecordsFromDatabase(selectedDate As Date)
+        Using connection As New SqlConnection(SQLCon.connectionString)
             connection.Open()
 
-            ' Define the SQL command to delete records where the Resit date matches the selected date
-            Dim sql As String = "DELETE FROM ElectrotechnologyReports.dbo.ElectricalResit WHERE [Resit date] = @SelectedDate"
+            Dim sql As String = "DELETE FROM ElectrotechnologyReports.dbo.ElectricalResit WHERE CAST([Resit date] AS date) = CAST(@SelectedDate AS date)"
 
-            ' Create a SqlCommand object
             Using command As New SqlCommand(sql, connection)
-                ' Add parameter for the selected date
-                command.Parameters.AddWithValue("@SelectedDate", selectedDate)
-
-                ' Execute the command
+                command.Parameters.Add("@SelectedDate", SqlDbType.Date).Value = selectedDate
                 command.ExecuteNonQuery()
             End Using
         End Using
@@ -222,169 +218,99 @@ Public Class Main
 
             ' Create a SqlCommand object with your query and connection
             Using command As New SqlCommand(query, connection)
-                ' Execute the query and retrieve the image data
-                ' Use ExecuteScalar since you're retrieving a single value (the image data)
-                imageData = DirectCast(command.ExecuteScalar(), Byte())
+                Dim scalar = command.ExecuteScalar()
+                If scalar IsNot Nothing AndAlso Not Convert.IsDBNull(scalar) Then
+                    imageData = DirectCast(scalar, Byte())
+                End If
             End Using
         End Using
 
-        ' Return the retrieved image data
         Return imageData
     End Function
     Private Sub Button5_Click(sender As Object, e As EventArgs) Handles Button5.Click
         Dim selectedDate As String = DateTimePicker1.Value.ToString("yyyy-MM-dd")
-        ' Get the image data from the database
         Dim imageData As Byte() = RetrieveImageDataFromDatabase()
-        ' Query to retrieve data based on selected date and ResitDate
         Dim query As String = "SELECT * FROM ElectrotechnologyReports.dbo.ElectricalResit WHERE CONVERT(date, [Resit date]) = @SelectedDate"
 
-        Dim outlookApp As New Outlook.Application()
-        Dim mailItem As Outlook.MailItem
+        Dim outlookApp As Object = OutlookInterop.TryCreateOutlookApplication()
+        If outlookApp Is Nothing Then
+            MessageBox.Show("Microsoft Outlook could not be started. Install Outlook (desktop) and try again.", "Outlook required", MessageBoxButtons.OK, MessageBoxIcon.Warning)
+            Return
+        End If
 
-        Using connection As New SqlConnection(connectionString)
-            Using command As New SqlCommand(query, connection)
-                command.Parameters.AddWithValue("@SelectedDate", selectedDate)
+        Try
+            Using connection As New SqlConnection(SQLCon.connectionString)
+                Using command As New SqlCommand(query, connection)
+                    command.Parameters.AddWithValue("@SelectedDate", selectedDate)
 
-                connection.Open()
-
-                Using reader As SqlDataReader = command.ExecuteReader()
-                    While reader.Read()
-                        Dim emailAddress As String = reader("Student Email").ToString()
-                        Dim Blockgroup As String = reader("Blockgroup").ToString()
-                        Dim resitDate As Date = CType(reader("Resit date"), Date)
-                        Dim StudentFirstname As String = reader("Student Firstname").ToString()
-                        Dim StudentSurname As String = reader("Student Surname").ToString()
-                        Dim Student_ID As String = reader("Student ID").ToString()
-                        Dim Unit As String = reader("Unit").ToString()
-                        Dim UnitName As String = reader("Unit Name").ToString()
-                        Dim AllocatedTeacher As String = reader("AllocatedTeacher").ToString()
-                        Dim AllocatedTeacherEmail As String = reader("AllocatedTeacherEmail").ToString()
-                        Dim formattedResitDate As String = resitDate.ToString("dd")
-
-                        ' Handle special cases for ordinal indicators
-                        Select Case resitDate.Day
-                            Case 1, 21, 31
-                                formattedResitDate &= "st"
-                            Case 2, 22
-                                formattedResitDate &= "nd"
-                            Case 3, 23
-                                formattedResitDate &= "rd"
-                            Case Else
-                                formattedResitDate &= "th"
-                        End Select
-
-                        ' Add the month and year to the formatted date
-                        formattedResitDate &= " " & resitDate.ToString("MMMM, yyyy")
-
-                        ' Construct email message with placeholders
-                        ' Set the body of the email with placeholders for student details
-                        Dim body As String = "Dear " & AllocatedTeacher & "," & vbCrLf & vbCrLf & "<br>" &
-                        "This is a reminder about an upcoming resit on " & formattedResitDate & ".<br>" &
-                        vbCrLf & vbCrLf &
-                        "Please see below for your applicable student:" & vbCrLf & vbCrLf & "<br><br>" &
-                        "Student ID: " & Student_ID & vbCrLf & "<br>" &
-                        "Student Firstname: " & StudentFirstname & vbCrLf & "<br>" &
-                        "Student Surname: " & StudentSurname & vbCrLf & "<br>" &
-                        "Blockgroup: " & Blockgroup & vbCrLf & "<br>" &
-                        "Allocated Teacher: " & AllocatedTeacher & vbCrLf & "<br>" &
-                        "Unit: " & Unit & "- " & UnitName & vbCrLf & vbCrLf & "<br><br>" &
-                        "Please monitor this student and update their results upon resit completion,<br><br>" & vbCrLf & vbCrLf &
-                        "Thank you," & vbCrLf & "<br>" &
-                        "Electrotechnology.Admin Team"
-
-
-
-                        ' Create a new mail item
-                        mailItem = outlookApp.CreateItem(Outlook.OlItemType.olMailItem)
-                        With mailItem
-                            Dim subject As String = "One of your students has been booked into a resit night on " & formattedResitDate
-                            .Subject = subject
-                            .HTMLBody = $"<html><body><font color='black'>{body}</font></body><br><img src='data:image/jpeg;base64," & Convert.ToBase64String(imageData) & "' width='90%'> </html>"
-                            .To = AllocatedTeacherEmail
-                            .SentOnBehalfOfName = "Electrotechnology.admin@vu.edu.au"
-
-                            If CheckBox1.Checked = True Then
-                                .Display() ' Display the email
-                            End If
-                            If CheckBox2.Checked = True Then
-                                .Send()
-                            End If
-                        End With
-                    End While
-                End Using
-            End Using
-        End Using
-    End Sub
-
-    Private Function GetTeacherEmails(selectedDate As String) As List(Of String)
-        Dim teacherEmails As New List(Of String)
-
-        ' Assuming you have a SqlConnection object named 'connection' already defined
-        Using connection As New SqlConnection(connectionString)
-            ' Open the connection
-            connection.Open()
-
-            ' Define the SQL command to retrieve teacher emails where the Resit date matches the selected date
-            Dim sql As String = "SELECT AllocatedTeacherEmail FROM ElectrotechnologyReports.dbo.ElectricalResit WHERE [Resit date] = @SelectedDate"
-
-            ' Create a SqlCommand object
-            Using command As New SqlCommand(sql, connection)
-                ' Add parameter for the selected date
-                command.Parameters.AddWithValue("@SelectedDate", selectedDate)
-
-                ' Execute the command and read the results
-                Dim reader As SqlDataReader = command.ExecuteReader()
-                While reader.Read()
-                    ' Add the teacher email to the list
-                    teacherEmails.Add(reader("AllocatedTeacherEmail").ToString())
-                End While
-            End Using
-        End Using
-
-        Return teacherEmails
-    End Function
-    Public Function GetDataForEmails(selectedDate As Date) As DataTable
-        Dim dataTable As DataTable = GetDataForEmails(selectedDate)
-        DataGridView1.DataSource = dataTable
-        ' Connection string to your SQL Server
-        Dim connectionString As String = SQLCon.connectionString
-
-        ' SQL query to retrieve data from your table based on the selected date
-        Dim query As String = "SELECT [Student ID], [Student Firstname], [Student Surname], [AllocatedTeacher], [Unit] " &
-                              "FROM YourTable " &
-                              "WHERE [Resit Date] = @SelectedDate"
-
-        Using connection As New SqlConnection(connectionString)
-            Using command As New SqlCommand(query, connection)
-                ' Add parameter for selected date
-                command.Parameters.AddWithValue("@SelectedDate", selectedDate)
-
-                Try
                     connection.Open()
 
-                    ' Execute the query and load the results into the DataTable
                     Using reader As SqlDataReader = command.ExecuteReader()
-                        dataTable.Load(reader)
-                    End Using
-                Catch ex As System.Exception
-                    ' Handle any exceptions
-                    MessageBox.Show("Error retrieving data from SQL table: " & ex.Message)
-                End Try
-            End Using
-        End Using
+                        While reader.Read()
+                        Dim emailAddress As String = reader("Student Email").ToString()
+                            Dim Blockgroup As String = reader("Blockgroup").ToString()
+                            Dim resitDate As Date = CType(reader("Resit date"), Date)
+                            Dim StudentFirstname As String = reader("Student Firstname").ToString()
+                            Dim StudentSurname As String = reader("Student Surname").ToString()
+                            Dim Student_ID As String = reader("Student ID").ToString()
+                            Dim Unit As String = reader("Unit").ToString()
+                            Dim UnitName As String = reader("Unit Name").ToString()
+                            Dim AllocatedTeacher As String = reader("AllocatedTeacher").ToString()
+                            Dim AllocatedTeacherEmail As String = reader("AllocatedTeacherEmail").ToString()
+                            Dim formattedResitDate As String = resitDate.ToString("dd")
 
-        Return dataTable
-    End Function
+                            Select Case resitDate.Day
+                                Case 1, 21, 31
+                                    formattedResitDate &= "st"
+                                Case 2, 22
+                                    formattedResitDate &= "nd"
+                                Case 3, 23
+                                    formattedResitDate &= "rd"
+                                Case Else
+                                    formattedResitDate &= "th"
+                            End Select
+
+                            formattedResitDate &= " " & resitDate.ToString("MMMM, yyyy")
+
+                            Dim body As String = "Dear " & AllocatedTeacher & "," & vbCrLf & vbCrLf & "<br>" &
+                            "This is a reminder about an upcoming resit on " & formattedResitDate & ".<br>" &
+                            vbCrLf & vbCrLf &
+                            "Please see below for your applicable student:" & vbCrLf & vbCrLf & "<br><br>" &
+                            "Student ID: " & Student_ID & vbCrLf & "<br>" &
+                            "Student Firstname: " & StudentFirstname & vbCrLf & "<br>" &
+                            "Student Surname: " & StudentSurname & vbCrLf & "<br>" &
+                            "Blockgroup: " & Blockgroup & vbCrLf & "<br>" &
+                            "Allocated Teacher: " & AllocatedTeacher & vbCrLf & "<br>" &
+                            "Unit: " & Unit & "- " & UnitName & vbCrLf & vbCrLf & "<br><br>" &
+                            "Please monitor this student and update their results upon resit completion,<br><br>" & vbCrLf & vbCrLf &
+                            "Thank you," & vbCrLf & "<br>" &
+                            "Electrotechnology.Admin Team"
+
+                            Dim imgHtml As String = ""
+                            If imageData IsNot Nothing AndAlso imageData.Length > 0 Then
+                                imgHtml = "<br><img src='data:image/jpeg;base64," & Convert.ToBase64String(imageData) & "' width='90%'>"
+                            End If
+                            Dim html As String = "<html><body><font color='black'>" & body & "</font></body>" & imgHtml & "</html>"
+                            Dim subject As String = "One of your students has been booked into a resit night on " & formattedResitDate
+                            OutlookInterop.CreateDisplayOrSendMail(outlookApp, AllocatedTeacherEmail, subject, html, "Electrotechnology.admin@vu.edu.au", CheckBox1.Checked, CheckBox2.Checked)
+                        End While
+                    End Using
+                End Using
+            End Using
+        Finally
+            Marshal.FinalReleaseComObject(outlookApp)
+        End Try
+    End Sub
 
     Private Sub DateTimePicker1_ValueChanged(sender As Object, e As EventArgs) Handles DateTimePicker1.ValueChanged
-        ' Filter the data based on the selected date
         FilterData()
         UpdateListView(DateTimePicker1.Value)
-
+        UpdateListView1(DateTimePicker1.Value)
     End Sub
     Public Sub FilterData()
         Dim selectedDate As DateTime = DateTimePicker1.Value
-        Dim dataTable As DataTable = CType(DataGridView1.DataSource, DataTable)
+        Dim dataTable = TryCast(DataGridView1.DataSource, DataTable)
+        If dataTable Is Nothing Then Return
         dataTable.DefaultView.RowFilter = "[Resit date] = '" & selectedDate.ToString("yyyy-MM-dd") & "'"
     End Sub
 
@@ -596,16 +522,25 @@ Public Class Main
     End Sub
 
     Private Sub Button10_Click(sender As Object, e As EventArgs) Handles Button10.Click
+        If MessageBox.Show("Delete all resit records older than 14 days? This cannot be undone.", "Confirm delete", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) <> DialogResult.Yes Then
+            Return
+        End If
         Dim query As String = "DELETE FROM ElectrotechnologyReports.dbo.ElectricalResit WHERE [Resit date] <= DATEADD(day, -14, GETDATE())"
 
-        Using connection As New SqlConnection(connectionString)
+        Using connection As New SqlConnection(SQLCon.connectionString)
             Using command As New SqlCommand(query, connection)
                 connection.Open()
                 command.ExecuteNonQuery()
             End Using
         End Using
         UpdateDataGridView()
-        MsgBox("All 14 day old resit events have been deleted!")
+        MessageBox.Show("All resit records older than 14 days have been deleted.", "Done", MessageBoxButtons.OK, MessageBoxIcon.Information)
+    End Sub
+
+    Private Sub Button6_Click(sender As Object, e As EventArgs) Handles Button6.Click
+        UpdateDataGridView()
+        UpdateListView(DateTimePicker1.Value)
+        UpdateListView1(DateTimePicker1.Value)
     End Sub
     Private Sub UpdateListView(selectedDate As Date)
         ' Clear the ListView before updating
@@ -675,6 +610,7 @@ Public Class Main
             ' Update SQL table
             UpdateDataInSQL(resitDate, unit)
         End If
+        'UpdateDataGridView()
     End Sub
 
     Private Sub UpdateDataInSQL(resitDate As Date, unit As String)
@@ -701,10 +637,7 @@ Public Class Main
                     command.ExecuteNonQuery()
                 End Using
             End Using
-            ' If update successful, show a message
-            MessageBox.Show("Data updated successfully.")
         Catch ex As System.Exception
-            ' If an error occurs, show the error message
             MessageBox.Show("An error occurred: " & ex.Message)
         End Try
     End Sub
@@ -746,7 +679,23 @@ Public Class Main
             ' Handle any errors that occur during database access
             MessageBox.Show("Error retrieving data from the database: " & ex.Message)
         End Try
+        UpdateResitExportButtonsVisibility()
     End Sub
+
+    Private Function ListView2HasAnyChecked() As Boolean
+        For Each item As ListViewItem In ListView2.Items
+            If item.Checked Then Return True
+        Next
+        Return False
+    End Function
+
+    ''' <summary>Show Export to Excel and Resit Login Details only when at least one ListView2 row is ticked.</summary>
+    Private Sub UpdateResitExportButtonsVisibility()
+        Dim show = ListView2HasAnyChecked()
+        Button9.Visible = show
+        Button12.Visible = show
+    End Sub
+
     Private Sub ListView2_ItemChecked(sender As Object, e As ItemCheckedEventArgs) Handles ListView2.ItemChecked
         ' Get the checked item in the ListView
         Dim checkedItem = e.Item
@@ -762,6 +711,8 @@ Public Class Main
             ' Update SQL table
             UpdateDataInSQL2(resitDate, unit)
         End If
+        UpdateResitExportButtonsVisibility()
+        'UpdateDataGridView()
     End Sub
     Private Sub UpdateDataInSQL2(resitDate As Date, unit As String)
         ' Connection string
@@ -787,11 +738,129 @@ Public Class Main
                     command.ExecuteNonQuery()
                 End Using
             End Using
-            ' If update successful, show a message
-            MessageBox.Show("Data updated successfully.")
         Catch ex As System.Exception
-            ' If an error occurs, show the error message
             MessageBox.Show("An error occurred: " & ex.Message)
+        End Try
+    End Sub
+
+    Private Sub Button11_Click(sender As Object, e As EventArgs) Handles Button11.Click
+        Settings.Show()
+    End Sub
+
+    Private Sub TryOpenSavedResitLoginDocument(filePath As String)
+        Try
+            Process.Start(New ProcessStartInfo(filePath) With {.UseShellExecute = True})
+        Catch ex As Exception
+            MessageBox.Show("Could not open the file: " & ex.Message, "Resit login sheet", MessageBoxButtons.OK, MessageBoxIcon.Warning)
+        End Try
+    End Sub
+
+    ''' <summary>Builds lines like CD0044-RESIT-CERTIII-2026 from ListView2 — only items with the checkbox ticked.</summary>
+    Private Function BuildResitClassGroupLines(listView As ListView, certYear As Integer) As String
+        Dim lines As New List(Of String)
+        For Each item As ListViewItem In listView.Items
+            If Not item.Checked Then Continue For
+            Dim u = item.Text.Trim()
+            If u.Length > 0 Then
+                Dim abbrev = UnitCodeAbbreviation.ToAbbreviatedClassCode(u)
+                lines.Add(abbrev & "-RESIT-CERTIII-" & certYear.ToString())
+            End If
+        Next
+        lines.Sort(StringComparer.OrdinalIgnoreCase)
+        If lines.Count = 0 Then
+            Return "(no class groups selected — tick the units under Energyspace Assessment Booked to include them here)"
+        End If
+        Return String.Join(vbCrLf, lines)
+    End Function
+
+    ''' <summary>
+    ''' Tokens: {{RESIT_NIGHT_DATE}} {{CLASS_GROUPS}} {{DAILY_ENERGYSPACE_PASSWORD}}
+    ''' {{PASSWORD_LINE}} / {{PC_LOGIN_PASSWORD}} = PC monthly (Settings). {{MONTHLY_PASSWORD}} removed (replaced empty if present in old templates).
+    ''' {{USERNAME_LINE}} optional.
+    ''' </summary>
+    Private Sub Button12_Click(sender As Object, e As EventArgs) Handles Button12.Click
+        Dim dailyPwd As String = Interaction.InputBox(
+            "Today's daily Energyspace password (changes each day).",
+            "Daily Energyspace password",
+            "")
+        If String.IsNullOrWhiteSpace(dailyPwd) Then Return
+
+        Dim pcLoginMonthly As String = My.Settings.PcLoginMonthlyPassword
+
+        Dim templatePath As String = My.Settings.ResitLoginWordTemplatePath
+        If Not File.Exists(templatePath) Then
+            Using ofd As New OpenFileDialog()
+                ofd.Filter = "Word documents (*.docx)|*.docx|All files|*.*"
+                ofd.Title = "Select the Resit login Word template"
+                If ofd.ShowDialog(Me) <> DialogResult.OK Then Return
+                templatePath = ofd.FileName
+                My.Settings.ResitLoginWordTemplatePath = templatePath
+                My.Settings.Save()
+            End Using
+        End If
+
+        Dim sfd As New SaveFileDialog()
+        sfd.Filter = "Word document (*.docx)|*.docx"
+        sfd.FileName = "Resit login details - " & DateTimePicker1.Value.ToString("yyyy-MM-dd") & ".docx"
+        sfd.Title = "Save generated Resit login sheet"
+        If sfd.ShowDialog(Me) <> DialogResult.OK Then Return
+
+        Dim certYear = DateTimePicker1.Value.Year
+        Dim classGroupsBlock = BuildResitClassGroupLines(ListView2, certYear)
+        Dim resitNightLong As String = DateTimePicker1.Value.ToString("D")
+
+        Dim wordApp As Object = WordDocInterop.TryCreateWordApplication()
+        If wordApp Is Nothing Then
+            MessageBox.Show("Microsoft Word is required. Install desktop Word and try again.", "Word required", MessageBoxButtons.OK, MessageBoxIcon.Warning)
+            Return
+        End If
+
+        wordApp.Visible = False
+        Dim doc As Object = Nothing
+        Try
+            doc = wordApp.Documents.Open(templatePath)
+            WordDocInterop.ReplaceAllInDocument(doc, "{{RESIT_NIGHT_DATE}}", resitNightLong)
+            WordDocInterop.ReplaceAllInDocument(doc, "{{MONTHLY_PASSWORD}}", "")
+            WordDocInterop.ReplaceAllInDocument(doc, "{{CLASS_GROUPS}}", classGroupsBlock)
+            WordDocInterop.ReplaceAllInDocument(doc, "{{DAILY_ENERGYSPACE_PASSWORD}}", dailyPwd)
+            WordDocInterop.ReplaceAllInDocument(doc, "{{USERNAME_LINE}}", "Username: student")
+            WordDocInterop.ReplaceAllInDocument(doc, "{{PASSWORD_LINE}}", "Password: " & pcLoginMonthly)
+            WordDocInterop.ReplaceAllInDocument(doc, "{{PC_LOGIN_PASSWORD}}", pcLoginMonthly)
+
+            Try
+                doc.SaveAs2(sfd.FileName)
+            Catch
+                doc.SaveAs(sfd.FileName)
+            End Try
+
+            doc.Close(0)
+            doc = Nothing
+            Dim savedPath = sfd.FileName
+            If My.Settings.ResitLoginOpenDocumentAfterSave Then
+                MessageBox.Show("Document saved:" & vbCrLf & savedPath, "Resit login sheet", MessageBoxButtons.OK, MessageBoxIcon.Information)
+                TryOpenSavedResitLoginDocument(savedPath)
+            Else
+                Dim openNow = MessageBox.Show(
+                    "Document saved:" & vbCrLf & savedPath & vbCrLf & vbCrLf & "Open it now?",
+                    "Resit login sheet",
+                    MessageBoxButtons.YesNo,
+                    MessageBoxIcon.Information,
+                    MessageBoxDefaultButton.Button1)
+                If openNow = DialogResult.Yes Then
+                    TryOpenSavedResitLoginDocument(savedPath)
+                End If
+            End If
+        Catch ex As Exception
+            MessageBox.Show("Word could not complete the document: " & ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error)
+        Finally
+            If doc IsNot Nothing Then
+                Try
+                    doc.Close(0)
+                Catch
+                End Try
+                Marshal.FinalReleaseComObject(doc)
+            End If
+            WordDocInterop.QuitWord(wordApp)
         End Try
     End Sub
 

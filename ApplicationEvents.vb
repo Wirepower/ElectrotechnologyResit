@@ -1,4 +1,5 @@
-﻿Imports Microsoft.VisualBasic.ApplicationServices
+Imports System.IO
+Imports Microsoft.VisualBasic.ApplicationServices
 
 Namespace My
     ' The following events are available for MyApplication:
@@ -24,6 +25,32 @@ Namespace My
     ' End Sub
 
     Partial Friend Class MyApplication
+
+        Private Sub MyApplication_Startup(sender As Object, e As StartupEventArgs) Handles Me.Startup
+            ResitLoginTemplateBuilder.EnsureDefaultTemplateExists()
+            Dim bundled = ResitLoginTemplatePaths.GetBundledTemplateFullPath()
+            Try
+                Dim changed As Boolean = False
+                Dim cur = My.Settings.ResitLoginWordTemplatePath
+                Dim useBundled As Boolean = False
+                If String.IsNullOrWhiteSpace(cur) OrElse Not File.Exists(cur) Then
+                    useBundled = True
+                ElseIf cur.EndsWith("ResitLoginTemplate.docx", StringComparison.OrdinalIgnoreCase) AndAlso File.Exists(bundled) Then
+                    useBundled = True
+                ElseIf cur.EndsWith("ResitLoginSheet.docx", StringComparison.OrdinalIgnoreCase) AndAlso File.Exists(bundled) Then
+                    useBundled = True
+                ElseIf cur.EndsWith("ResitLoginSheet-v2.docx", StringComparison.OrdinalIgnoreCase) AndAlso File.Exists(bundled) Then
+                    ' Shorter separator line (no wrap); use ResitLoginSheet-v3.docx.
+                    useBundled = True
+                End If
+                If useBundled AndAlso File.Exists(bundled) Then
+                    My.Settings.ResitLoginWordTemplatePath = bundled
+                    changed = True
+                End If
+                If changed Then My.Settings.Save()
+            Catch
+            End Try
+        End Sub
 
     End Class
 End Namespace

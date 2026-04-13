@@ -1,9 +1,13 @@
-﻿'Imports System.Data.SqlClient
+'Imports System.Data.SqlClient
 Imports System.Drawing
 Imports Microsoft.Data.SqlClient
 
 Module SQLCon
-    Public connectionString As String = "Server=DEVSQLCENTRAL.AD.VU.EDU.AU;Integrated Security=True;Connect Timeout=30;Encrypt=True;TrustServerCertificate=True;Multi Subnet Failover=False;"
+    Public ReadOnly Property connectionString As String
+        Get
+            Return My.Settings.SQLConnection
+        End Get
+    End Property
 
     Private statusLabel As Label ' Declare a private variable to hold the reference to the status label
 
@@ -17,7 +21,8 @@ Module SQLCon
             Return connection
         Catch ex As Exception
             MsgBox("Error creating connection: " & vbCrLf & ex.Message & vbCrLf & "Exiting Application!")
-            Environment.Exit(0)
+            Settings.Show()
+            'Environment.Exit(0)
             Return Nothing ' Return null or Nothing to indicate failure
         End Try
     End Function

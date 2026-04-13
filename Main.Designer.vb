@@ -1,4 +1,4 @@
-﻿<Global.Microsoft.VisualBasic.CompilerServices.DesignerGenerated()>
+<Global.Microsoft.VisualBasic.CompilerServices.DesignerGenerated()>
 Partial Class Main
     Inherits System.Windows.Forms.Form
 
@@ -47,6 +47,8 @@ Partial Class Main
         Label6 = New Label()
         ListView2 = New ListView()
         Label7 = New Label()
+        Button11 = New Button()
+        Button12 = New Button()
         CType(DataGridView1, ComponentModel.ISupportInitialize).BeginInit()
         SuspendLayout()
         ' 
@@ -228,6 +230,7 @@ Partial Class Main
         Button9.TabIndex = 20
         Button9.Text = "Export to Excel"
         Button9.UseVisualStyleBackColor = True
+        Button9.Visible = False
         ' 
         ' Button10
         ' 
@@ -282,11 +285,32 @@ Partial Class Main
         Label7.TabIndex = 25
         Label7.Text = "Energyspace Assessment Booked:"
         ' 
+        ' Button11
+        ' 
+        Button11.Location = New Point(32, 35)
+        Button11.Name = "Button11"
+        Button11.Size = New Size(121, 23)
+        Button11.TabIndex = 26
+        Button11.Text = "SQL Settings"
+        Button11.UseVisualStyleBackColor = True
+        ' 
+        ' Button12
+        ' 
+        Button12.Location = New Point(380, 684)
+        Button12.Name = "Button12"
+        Button12.Size = New Size(131, 66)
+        Button12.TabIndex = 27
+        Button12.Text = "Resit Login " & vbCrLf & "Details"
+        Button12.UseVisualStyleBackColor = True
+        Button12.Visible = False
+        ' 
         ' Main
         ' 
-        AutoScaleDimensions = New SizeF(7F, 15F)
+        AutoScaleDimensions = New SizeF(7.0F, 15.0F)
         AutoScaleMode = AutoScaleMode.Font
         ClientSize = New Size(1517, 762)
+        Controls.Add(Button12)
+        Controls.Add(Button11)
         Controls.Add(Label7)
         Controls.Add(ListView2)
         Controls.Add(Label6)
@@ -312,7 +336,7 @@ Partial Class Main
         Controls.Add(Button2)
         Controls.Add(Button1)
         Name = "Main"
-        Text = "Form1"
+        Text = "Electrotechnology Resit"
         CType(DataGridView1, ComponentModel.ISupportInitialize).EndInit()
         ResumeLayout(False)
         PerformLayout()
@@ -343,5 +367,7 @@ Partial Class Main
     Friend WithEvents Label6 As Label
     Friend WithEvents ListView2 As ListView
     Friend WithEvents Label7 As Label
+    Friend WithEvents Button11 As Button
+    Friend WithEvents Button12 As Button
 
 End Class

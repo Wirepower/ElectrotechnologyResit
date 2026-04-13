@@ -44,12 +44,12 @@ Partial Class NewStudent
         Label9 = New Label()
         Label10 = New Label()
         Label11 = New Label()
-        lblBlockgroup = New Label()
         Label15 = New Label()
         Button3 = New Button()
         lblTeacherEmail = New Label()
         lblUnit = New Label()
         DateTimePicker1 = New DateTimePicker()
+        txtBlockgroup = New TextBox()
         SuspendLayout()
         ' 
         ' Button1
@@ -245,16 +245,6 @@ Partial Class NewStudent
         Label11.TabIndex = 23
         Label11.Text = "Booked Assessment Date"
         ' 
-        ' lblBlockgroup
-        ' 
-        lblBlockgroup.BackColor = SystemColors.ButtonHighlight
-        lblBlockgroup.BorderStyle = BorderStyle.FixedSingle
-        lblBlockgroup.Location = New Point(182, 437)
-        lblBlockgroup.Name = "lblBlockgroup"
-        lblBlockgroup.Size = New Size(157, 23)
-        lblBlockgroup.TabIndex = 25
-        lblBlockgroup.TextAlign = ContentAlignment.MiddleCenter
-        ' 
         ' Label15
         ' 
         Label15.AutoSize = True
@@ -297,17 +287,24 @@ Partial Class NewStudent
         DateTimePicker1.Size = New Size(283, 23)
         DateTimePicker1.TabIndex = 31
         ' 
+        ' txtBlockgroup
+        ' 
+        txtBlockgroup.Location = New Point(182, 440)
+        txtBlockgroup.Name = "txtBlockgroup"
+        txtBlockgroup.Size = New Size(157, 23)
+        txtBlockgroup.TabIndex = 32
+        ' 
         ' NewStudent
         ' 
         AutoScaleDimensions = New SizeF(7F, 15F)
         AutoScaleMode = AutoScaleMode.Font
         ClientSize = New Size(530, 569)
+        Controls.Add(txtBlockgroup)
         Controls.Add(DateTimePicker1)
         Controls.Add(lblUnit)
         Controls.Add(lblTeacherEmail)
         Controls.Add(Button3)
         Controls.Add(Label15)
-        Controls.Add(lblBlockgroup)
         Controls.Add(Label11)
         Controls.Add(Label10)
         Controls.Add(Label9)
@@ -358,10 +355,10 @@ Partial Class NewStudent
     Friend WithEvents Label9 As Label
     Friend WithEvents Label10 As Label
     Friend WithEvents Label11 As Label
-    Friend WithEvents lblBlockgroup As Label
     Friend WithEvents Label15 As Label
     Friend WithEvents Button3 As Button
     Friend WithEvents lblTeacherEmail As Label
     Friend WithEvents lblUnit As Label
     Friend WithEvents DateTimePicker1 As DateTimePicker
+    Friend WithEvents txtBlockgroup As TextBox
 End Class
