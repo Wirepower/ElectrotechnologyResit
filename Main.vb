@@ -97,6 +97,7 @@ Public Class Main
             UpdateListView(DateTimePicker1.Value)
             UpdateListView1(DateTimePicker1.Value)
             FilterData()
+            ApplyPullFromBookingsButtonVisibility()
         Else
             MessageBox.Show("Closing Application, Connect to VPN and re-open Application", "Exiting Application")
             Settings.Show()
@@ -247,7 +248,7 @@ Public Class Main
 
                     Using reader As SqlDataReader = command.ExecuteReader()
                         While reader.Read()
-                        Dim emailAddress As String = reader("Student Email").ToString()
+                            Dim emailAddress As String = reader("Student Email").ToString()
                             Dim Blockgroup As String = reader("Blockgroup").ToString()
                             Dim resitDate As Date = CType(reader("Resit date"), Date)
                             Dim StudentFirstname As String = reader("Student Firstname").ToString()
@@ -747,6 +748,14 @@ Public Class Main
         Settings.Show()
     End Sub
 
+    Private Sub Main_Activated(sender As Object, e As EventArgs) Handles MyBase.Activated
+        ApplyPullFromBookingsButtonVisibility()
+    End Sub
+
+    Private Sub ApplyPullFromBookingsButtonVisibility()
+        Button13.Visible = My.Settings.ShowPullFromBookingsButton
+    End Sub
+
     Private Sub TryOpenSavedResitLoginDocument(filePath As String)
         Try
             Process.Start(New ProcessStartInfo(filePath) With {.UseShellExecute = True})
@@ -861,6 +870,25 @@ Public Class Main
                 Marshal.FinalReleaseComObject(doc)
             End If
             WordDocInterop.QuitWord(wordApp)
+        End Try
+    End Sub
+
+    Private Async Sub Button13_Click(sender As Object, e As EventArgs) Handles Button13.Click
+        Me.Cursor = Cursors.WaitCursor
+        Button13.Enabled = False
+        Try
+            Dim msg = Await BookingsDataImporter.PullFromBookingsAsync(Me, DateTimePicker1.Value.Date)
+            MessageBox.Show(msg, "Pull from Bookings", MessageBoxButtons.OK, MessageBoxIcon.Information)
+            UpdateDataGridView()
+            FilterData()
+            UpdateListView(DateTimePicker1.Value)
+            UpdateListView1(DateTimePicker1.Value)
+            UpdateResitExportButtonsVisibility()
+        Catch ex As Exception
+            MessageBox.Show(ex.Message, "Pull from Bookings", MessageBoxButtons.OK, MessageBoxIcon.Error)
+        Finally
+            Button13.Enabled = True
+            Me.Cursor = Cursors.Default
         End Try
     End Sub
 

@@ -102,6 +102,54 @@ Namespace My
                 Me("ResitLoginOpenDocumentAfterSave") = value
             End Set
         End Property
+        
+        <Global.System.Configuration.UserScopedSettingAttribute(),  _
+         Global.System.Diagnostics.DebuggerNonUserCodeAttribute(),  _
+         Global.System.Configuration.DefaultSettingValueAttribute("")>  _
+        Public Property BookingsAzureClientId() As String
+            Get
+                Return CType(Me("BookingsAzureClientId"),String)
+            End Get
+            Set
+                Me("BookingsAzureClientId") = value
+            End Set
+        End Property
+        
+        <Global.System.Configuration.UserScopedSettingAttribute(),  _
+         Global.System.Diagnostics.DebuggerNonUserCodeAttribute(),  _
+         Global.System.Configuration.DefaultSettingValueAttribute("common")>  _
+        Public Property BookingsAzureTenantId() As String
+            Get
+                Return CType(Me("BookingsAzureTenantId"),String)
+            End Get
+            Set
+                Me("BookingsAzureTenantId") = value
+            End Set
+        End Property
+        
+        <Global.System.Configuration.UserScopedSettingAttribute(),  _
+         Global.System.Diagnostics.DebuggerNonUserCodeAttribute(),  _
+         Global.System.Configuration.DefaultSettingValueAttribute("")>  _
+        Public Property BookingsBusinessId() As String
+            Get
+                Return CType(Me("BookingsBusinessId"),String)
+            End Get
+            Set
+                Me("BookingsBusinessId") = value
+            End Set
+        End Property
+        
+        <Global.System.Configuration.UserScopedSettingAttribute(),  _
+         Global.System.Diagnostics.DebuggerNonUserCodeAttribute(),  _
+         Global.System.Configuration.DefaultSettingValueAttribute("False")>  _
+        Public Property ShowPullFromBookingsButton() As Boolean
+            Get
+                Return CType(Me("ShowPullFromBookingsButton"),Boolean)
+            End Get
+            Set
+                Me("ShowPullFromBookingsButton") = value
+            End Set
+        End Property
     End Class
 End Namespace
 

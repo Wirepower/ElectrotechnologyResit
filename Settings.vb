@@ -4,6 +4,10 @@ Public Class Settings
         TextBox2.Text = My.Settings.PcLoginMonthlyPassword
         TextBox3.Text = My.Settings.ResitLoginWordTemplatePath
         CheckBoxResitLoginOpenAfterSave.Checked = My.Settings.ResitLoginOpenDocumentAfterSave
+        TextBoxBookingsClientId.Text = My.Settings.BookingsAzureClientId
+        TextBoxBookingsTenant.Text = My.Settings.BookingsAzureTenantId
+        TextBoxBookingsBusinessId.Text = My.Settings.BookingsBusinessId
+        CheckBoxShowPullFromBookingsButton.Checked = My.Settings.ShowPullFromBookingsButton
     End Sub
 
     Private Sub Button3_Click(sender As Object, e As EventArgs) Handles Button3.Click
@@ -21,6 +25,10 @@ Public Class Settings
         My.Settings.PcLoginMonthlyPassword = TextBox2.Text.Trim()
         My.Settings.ResitLoginWordTemplatePath = TextBox3.Text.Trim()
         My.Settings.ResitLoginOpenDocumentAfterSave = CheckBoxResitLoginOpenAfterSave.Checked
+        My.Settings.BookingsAzureClientId = TextBoxBookingsClientId.Text.Trim()
+        My.Settings.BookingsAzureTenantId = TextBoxBookingsTenant.Text.Trim()
+        My.Settings.BookingsBusinessId = TextBoxBookingsBusinessId.Text.Trim()
+        My.Settings.ShowPullFromBookingsButton = CheckBoxShowPullFromBookingsButton.Checked
         My.Settings.Save()
         Me.Hide()
         MessageBox.Show("Settings Saved, Please Restart Application", "Application Restart", MessageBoxButtons.OK)

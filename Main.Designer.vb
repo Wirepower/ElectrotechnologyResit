@@ -49,6 +49,7 @@ Partial Class Main
         Label7 = New Label()
         Button11 = New Button()
         Button12 = New Button()
+        Button13 = New Button()
         CType(DataGridView1, ComponentModel.ISupportInitialize).BeginInit()
         SuspendLayout()
         ' 
@@ -291,7 +292,7 @@ Partial Class Main
         Button11.Name = "Button11"
         Button11.Size = New Size(121, 23)
         Button11.TabIndex = 26
-        Button11.Text = "SQL Settings"
+        Button11.Text = "Settings"
         Button11.UseVisualStyleBackColor = True
         ' 
         ' Button12
@@ -304,11 +305,22 @@ Partial Class Main
         Button12.UseVisualStyleBackColor = True
         Button12.Visible = False
         ' 
+        ' Button13
+        ' 
+        Button13.Location = New Point(434, 107)
+        Button13.Name = "Button13"
+        Button13.Size = New Size(140, 64)
+        Button13.TabIndex = 28
+        Button13.Text = "Pull from Bookings"
+        Button13.UseVisualStyleBackColor = True
+        Button13.Visible = False
+        ' 
         ' Main
         ' 
         AutoScaleDimensions = New SizeF(7.0F, 15.0F)
         AutoScaleMode = AutoScaleMode.Font
         ClientSize = New Size(1517, 762)
+        Controls.Add(Button13)
         Controls.Add(Button12)
         Controls.Add(Button11)
         Controls.Add(Label7)
@@ -369,5 +381,6 @@ Partial Class Main
     Friend WithEvents Label7 As Label
     Friend WithEvents Button11 As Button
     Friend WithEvents Button12 As Button
+    Friend WithEvents Button13 As Button
 
 End Class

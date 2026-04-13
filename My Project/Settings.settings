@@ -14,5 +14,17 @@
     <Setting Name="ResitLoginOpenDocumentAfterSave" Type="System.Boolean" Scope="User">
       <Value Profile="(Default)">False</Value>
     </Setting>
+    <Setting Name="BookingsAzureClientId" Type="System.String" Scope="User">
+      <Value Profile="(Default)" />
+    </Setting>
+    <Setting Name="BookingsAzureTenantId" Type="System.String" Scope="User">
+      <Value Profile="(Default)">common</Value>
+    </Setting>
+    <Setting Name="BookingsBusinessId" Type="System.String" Scope="User">
+      <Value Profile="(Default)" />
+    </Setting>
+    <Setting Name="ShowPullFromBookingsButton" Type="System.Boolean" Scope="User">
+      <Value Profile="(Default)">False</Value>
+    </Setting>
   </Settings>
 </SettingsFile>
