@@ -835,6 +835,7 @@ Public Class Main
             WordDocInterop.ReplaceAllInDocument(doc, "{{USERNAME_LINE}}", "Username: student")
             WordDocInterop.ReplaceAllInDocument(doc, "{{PASSWORD_LINE}}", "Password: " & pcLoginMonthly)
             WordDocInterop.ReplaceAllInDocument(doc, "{{PC_LOGIN_PASSWORD}}", pcLoginMonthly)
+            ApplyLeaVuStamp(doc)
 
             Try
                 doc.SaveAs2(sfd.FileName)
@@ -871,6 +872,21 @@ Public Class Main
             End If
             WordDocInterop.QuitWord(wordApp)
         End Try
+    End Sub
+
+    ''' <summary>
+    ''' Fills legacy LEA stamp placeholders/bookmarks so older templates still render correctly.
+    ''' </summary>
+    Private Sub ApplyLeaVuStamp(doc As Object)
+        Const vuStampText As String = "VU Stamp"
+        WordDocInterop.TryReplaceBookmarkText(doc, "stamp1", vuStampText)
+        WordDocInterop.TryReplaceBookmarkText(doc, "stamp2", vuStampText)
+
+        ' Legacy text tokens seen in earlier LEA templates.
+        WordDocInterop.ReplaceAllInDocument(doc, "{{stamp1}}", vuStampText)
+        WordDocInterop.ReplaceAllInDocument(doc, "{{stamp2}}", vuStampText)
+        WordDocInterop.ReplaceAllInDocument(doc, "{{STAMP1}}", vuStampText)
+        WordDocInterop.ReplaceAllInDocument(doc, "{{STAMP2}}", vuStampText)
     End Sub
 
     Private Async Sub Button13_Click(sender As Object, e As EventArgs) Handles Button13.Click
