@@ -1,0 +1,98 @@
+# Builds the published app (zip) and, when possible, the Visual Studio Setup (.vdproj) MSI
+# on tag pushes, then creates/updates a GitHub Release with those files.
+#
+# Triggers: push a tag like v3.0.0
+#
+# The MSI build uses devenv.com with *absolute* paths to the .sln and .vdproj (required on
+# Visual Studio 2022 CI agents). The hosted windows-latest image includes Visual Studio 2022
+# with the "Installer Projects" extension (see actions/runner-images Windows readme).
+
+name: Build installer and release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Publish app (required for Setup "PublishItems")
+        run: >
+          dotnet publish .\ElectrotechnologyResit.vbproj
+          -c Release
+          -f net8.0-windows
+          -p:PublishProfile=FolderProfile
+
+      - name: Build Setup project (MSI)
+        id: msi
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $root = (Resolve-Path "${{ github.workspace }}").Path
+          $vswhere = Join-Path $env:ProgramFiles(x86) "Microsoft Visual Studio\Installer\vswhere.exe"
+          if (-not (Test-Path $vswhere)) { throw "vswhere not found: $vswhere" }
+          $vsInstall = & $vswhere -latest -products * -property installationPath
+          if ([string]::IsNullOrWhiteSpace($vsInstall)) { throw "No Visual Studio installation found" }
+          $devenv = Join-Path $vsInstall "Common7\IDE\devenv.com"
+          if (-not (Test-Path $devenv)) { throw "devenv.com not found: $devenv" }
+          $sln = Join-Path $root "ElectrotechnologyResit.sln"
+          $vdproj = Join-Path $root "Setup\Setup.vdproj"
+          if (-not (Test-Path $sln)) { throw "Solution not found: $sln" }
+          if (-not (Test-Path $vdproj)) { throw "Setup project not found: $vdproj" }
+          $log = Join-Path $env:RUNNER_TEMP "vdproj-build.log"
+          & $devenv $sln /Build "Release|Any CPU" /Project $vdproj /Out $log
+          if ($LASTEXITCODE -ne 0) {
+            if (Test-Path $log) { Get-Content $log }
+            exit $LASTEXITCODE
+          }
+
+      - name: Stage release assets
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          New-Item -ItemType Directory -Force "release-assets" | Out-Null
+          $pub = "bin\Release\net8.0-windows\publish"
+          if (-not (Test-Path $pub)) { throw "Publish output not found: $pub" }
+          $zip = "release-assets\ElectrotechnologyResit-publish.zip"
+          if (Test-Path $zip) { Remove-Item $zip -Force }
+          Compress-Archive -Path (Join-Path $pub "*") -DestinationPath $zip
+          if (Test-Path "Setup\Release\Setup.msi") {
+            Copy-Item "Setup\Release\Setup.msi" "release-assets\ElectrotechnologyResit-Setup.msi"
+          }
+          $setupExe = "Setup\Release\setup.exe"
+          if (Test-Path $setupExe) {
+            Copy-Item $setupExe "release-assets\ElectrotechnologyResit-Setup-Installer.exe"
+          }
+          Get-ChildItem "release-assets" | ForEach-Object { Write-Host $_.Name }
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
+          files: |
+            release-assets/ElectrotechnologyResit-publish.zip
+            release-assets/ElectrotechnologyResit-Setup.msi
+            release-assets/ElectrotechnologyResit-Setup-Installer.exe
+          generate_release_notes: true
+          fail_on_unmatched_files: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
