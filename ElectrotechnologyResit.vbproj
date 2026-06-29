@@ -6,6 +6,13 @@
     <StartupObject>Sub Main</StartupObject>
     <UseWindowsForms>true</UseWindowsForms>
     <MyType>WindowsForms</MyType>
+    <!-- Bump AppReleaseVersion for each release (Label5, window title, exe Properties → Details). -->
+    <AppReleaseVersion>2.0</AppReleaseVersion>
+    <Version>$(AppReleaseVersion)</Version>
+    <FileVersion>$(AppReleaseVersion)</FileVersion>
+    <InformationalVersion>$(AppReleaseVersion)</InformationalVersion>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+    <AssemblyVersion>2.0.0.0</AssemblyVersion>
     <ImportedNamespaces>Microsoft.Data.SqlClient=False,System.Data=False,System.Drawing=False,System.Windows.Forms=False,Microsoft.VisualBasic=True,System=True,System.Collections=True,System.Collections.Generic=True,System.Diagnostics=True,System.Linq=True,System.Xml.Linq=True,System.Threading.Tasks=True,ElectrotechnologyResit=True</ImportedNamespaces>
   </PropertyGroup>
 

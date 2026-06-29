@@ -149,7 +149,7 @@ Partial Class Main
         ' Label3
         ' 
         Label3.AutoSize = True
-        Label3.Location = New Point(680, 695)
+        Label3.Location = New Point(676, 695)
         Label3.Name = "Label3"
         Label3.Size = New Size(185, 15)
         Label3.TabIndex = 11
@@ -158,7 +158,7 @@ Partial Class Main
         ' Label4
         ' 
         Label4.AutoSize = True
-        Label4.Location = New Point(634, 710)
+        Label4.Location = New Point(627, 710)
         Label4.Name = "Label4"
         Label4.Size = New Size(261, 15)
         Label4.TabIndex = 12
@@ -167,11 +167,11 @@ Partial Class Main
         ' Label5
         ' 
         Label5.AutoSize = True
-        Label5.Location = New Point(706, 725)
+        Label5.Location = New Point(721, 725)
         Label5.Name = "Label5"
-        Label5.Size = New Size(127, 15)
+        Label5.Size = New Size(63, 15)
         Label5.TabIndex = 13
-        Label5.Text = "Version 1.0 SQL edition"
+        Label5.Text = "Version 2.0"
         ' 
         ' CheckBox1
         ' 
@@ -317,7 +317,7 @@ Partial Class Main
         ' 
         ' Main
         ' 
-        AutoScaleDimensions = New SizeF(7.0F, 15.0F)
+        AutoScaleDimensions = New SizeF(7F, 15F)
         AutoScaleMode = AutoScaleMode.Font
         ClientSize = New Size(1517, 762)
         Controls.Add(Button13)

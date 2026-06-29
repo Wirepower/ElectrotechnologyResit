@@ -6,6 +6,11 @@ Imports System.Runtime.InteropServices
 ''' <summary>Late-bound Microsoft Word (no Office PIAs). Requires Word installed.</summary>
 Friend Module WordDocInterop
     Private Const WdReplaceAll As Integer = 2
+    Private Const WdReplaceNone As Integer = 0
+    Private Const WdFindStop As Integer = 0
+    Private Const WdCollapseEnd As Integer = 0
+    ''' <summary>Word Find.Replacement.Text is limited to 255 characters.</summary>
+    Private Const MaxFindReplacementLength As Integer = 255
 
     Friend Function TryCreateWordApplication() As Object
         Dim wordType = Type.GetTypeFromProgID("Word.Application")
@@ -14,7 +19,17 @@ Friend Module WordDocInterop
     End Function
 
     Friend Sub ReplaceAllInDocument(doc As Object, findText As String, replaceText As String)
-        If findText Is Nothing OrElse replaceText Is Nothing Then Return
+        If doc Is Nothing OrElse findText Is Nothing Then Return
+        If replaceText Is Nothing Then replaceText = ""
+
+        If replaceText.Length <= MaxFindReplacementLength Then
+            ReplaceAllViaFindExecute(doc, findText, replaceText)
+        Else
+            ReplaceAllViaRangeText(doc, findText, replaceText)
+        End If
+    End Sub
+
+    Private Sub ReplaceAllViaFindExecute(doc As Object, findText As String, replaceText As String)
         Dim rng = doc.Content
         Dim f = rng.Find
         f.ClearFormatting()
@@ -30,6 +45,33 @@ Friend Module WordDocInterop
         f.MatchSoundsLike = False
         f.MatchAllWordForms = False
         f.Execute(Replace:=WdReplaceAll)
+    End Sub
+
+    ''' <summary>Find each token and assign Range.Text (no 255-char replacement limit).</summary>
+    Private Sub ReplaceAllViaRangeText(doc As Object, findText As String, replaceText As String)
+        Dim rng = doc.Content
+        ConfigureFind(rng.Find, findText)
+
+        Do While rng.Find.Execute(Replace:=WdReplaceNone)
+            rng.Text = replaceText
+            rng.Collapse(WdCollapseEnd)
+            ConfigureFind(rng.Find, findText)
+        Loop
+    End Sub
+
+    Private Sub ConfigureFind(f As Object, findText As String)
+        f.ClearFormatting()
+        f.Text = findText
+        f.Replacement.ClearFormatting()
+        f.Replacement.Text = ""
+        f.Forward = True
+        f.Wrap = WdFindStop
+        f.Format = False
+        f.MatchCase = False
+        f.MatchWholeWord = False
+        f.MatchWildcards = False
+        f.MatchSoundsLike = False
+        f.MatchAllWordForms = False
     End Sub
 
     ''' <summary>

@@ -22,6 +22,8 @@ Public Class Main
         ExcelPackage.LicenseContext = LicenseContext.NonCommercial
 
         InitializeComponent()
+        Label5.Text = AppVersion.DisplayText
+        Text = "Electrotechnology Resit — " & AppVersion.DisplayText
     End Sub
     Private Sub Button7_Click(sender As Object, e As EventArgs) Handles Button7.Click
         Me.Close()
@@ -611,6 +613,7 @@ Public Class Main
             ' Update SQL table
             UpdateDataInSQL(resitDate, unit)
         End If
+        UpdateResitExportButtonsVisibility()
         'UpdateDataGridView()
     End Sub
 
@@ -683,16 +686,16 @@ Public Class Main
         UpdateResitExportButtonsVisibility()
     End Sub
 
-    Private Function ListView2HasAnyChecked() As Boolean
-        For Each item As ListViewItem In ListView2.Items
+    Private Function ListViewHasAnyChecked(listView As ListView) As Boolean
+        For Each item As ListViewItem In listView.Items
             If item.Checked Then Return True
         Next
         Return False
     End Function
 
-    ''' <summary>Show Export to Excel and Resit Login Details only when at least one ListView2 row is ticked.</summary>
+    ''' <summary>Show Export to Excel and Resit Login Details when ListView1 or ListView2 has a ticked row.</summary>
     Private Sub UpdateResitExportButtonsVisibility()
-        Dim show = ListView2HasAnyChecked()
+        Dim show = ListViewHasAnyChecked(ListView1) OrElse ListViewHasAnyChecked(ListView2)
         Button9.Visible = show
         Button12.Visible = show
     End Sub
