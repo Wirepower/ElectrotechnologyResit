@@ -47,7 +47,7 @@ jobs:
         run: |
           $ErrorActionPreference = "Stop"
           $root = (Resolve-Path "${{ github.workspace }}").Path
-          $vswhere = Join-Path $env:ProgramFiles(x86) "Microsoft Visual Studio\Installer\vswhere.exe"
+          $vswhere = Join-Path ${env:ProgramFiles(x86)} "Microsoft Visual Studio\Installer\vswhere.exe"
           if (-not (Test-Path $vswhere)) { throw "vswhere not found: $vswhere" }
           $vsInstall = & $vswhere -latest -products * -property installationPath
           if ([string]::IsNullOrWhiteSpace($vsInstall)) { throw "No Visual Studio installation found" }
