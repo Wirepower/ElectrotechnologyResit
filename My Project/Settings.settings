@@ -2,11 +2,8 @@
 <SettingsFile xmlns="http://schemas.microsoft.com/VisualStudio/2004/01/settings" CurrentProfile="(Default)" GeneratedClassNamespace="My" GeneratedClassName="MySettings" UseMySettingsClassName="true">
   <Profiles />
   <Settings>
-    <Setting Name="SQLConnection" Type="System.String" Scope="User">
-      <Value Profile="(Default)">Server=DEVSQLCENTRAL.AD.VU.EDU.AU;Integrated Security=True;Connect Timeout=30;Encrypt=True;TrustServerCertificate=True;Multi Subnet Failover=False;</Value>
-    </Setting>
     <Setting Name="PcLoginMonthlyPassword" Type="System.String" Scope="User">
-      <Value Profile="(Default)">Futur9999stud9nt87</Value>
+      <Value Profile="(Default)" />
     </Setting>
     <Setting Name="ResitLoginWordTemplatePath" Type="System.String" Scope="User">
       <Value Profile="(Default)" />
@@ -24,6 +21,36 @@
       <Value Profile="(Default)" />
     </Setting>
     <Setting Name="ShowPullFromBookingsButton" Type="System.Boolean" Scope="User">
+      <Value Profile="(Default)">False</Value>
+    </Setting>
+    <Setting Name="SharePointSiteUrl" Type="System.String" Scope="User">
+      <Value Profile="(Default)" />
+    </Setting>
+    <Setting Name="GraphClientId" Type="System.String" Scope="User">
+      <Value Profile="(Default)" />
+    </Setting>
+    <Setting Name="GraphTenantId" Type="System.String" Scope="User">
+      <Value Profile="(Default)">common</Value>
+    </Setting>
+    <Setting Name="GraphUseSitesSelected" Type="System.Boolean" Scope="User">
+      <Value Profile="(Default)">False</Value>
+    </Setting>
+    <Setting Name="ResitBookingsListName" Type="System.String" Scope="User">
+      <Value Profile="(Default)">ResitBookings</Value>
+    </Setting>
+    <Setting Name="StudentsListName" Type="System.String" Scope="User">
+      <Value Profile="(Default)">Students</Value>
+    </Setting>
+    <Setting Name="TeachersListName" Type="System.String" Scope="User">
+      <Value Profile="(Default)">Teachers</Value>
+    </Setting>
+    <Setting Name="UnitsListName" Type="System.String" Scope="User">
+      <Value Profile="(Default)">Units</Value>
+    </Setting>
+    <Setting Name="SignatureImageLocation" Type="System.String" Scope="User">
+      <Value Profile="(Default)">EmailSignature</Value>
+    </Setting>
+    <Setting Name="SharePointSetupCompleted" Type="System.Boolean" Scope="User">
       <Value Profile="(Default)">False</Value>
     </Setting>
   </Settings>

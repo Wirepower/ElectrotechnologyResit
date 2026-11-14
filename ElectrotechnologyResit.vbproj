@@ -5,6 +5,7 @@
     <TargetFramework>net8.0-windows</TargetFramework>
     <StartupObject>Sub Main</StartupObject>
     <UseWindowsForms>true</UseWindowsForms>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
     <MyType>WindowsForms</MyType>
     <!-- Bump AppReleaseVersion for each release (Label5, window title, exe Properties → Details). -->
     <AppReleaseVersion>2.0</AppReleaseVersion>
@@ -13,11 +14,10 @@
     <InformationalVersion>$(AppReleaseVersion)</InformationalVersion>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
     <AssemblyVersion>2.0.0.0</AssemblyVersion>
-    <ImportedNamespaces>Microsoft.Data.SqlClient=False,System.Data=False,System.Drawing=False,System.Windows.Forms=False,Microsoft.VisualBasic=True,System=True,System.Collections=True,System.Collections.Generic=True,System.Diagnostics=True,System.Linq=True,System.Xml.Linq=True,System.Threading.Tasks=True,ElectrotechnologyResit=True</ImportedNamespaces>
+    <ImportedNamespaces>System.Data=False,System.Drawing=False,System.Windows.Forms=False,Microsoft.VisualBasic=True,System=True,System.Collections=True,System.Collections.Generic=True,System.Diagnostics=True,System.Linq=True,System.Xml.Linq=True,System.Threading.Tasks=True,ElectrotechnologyResit=True</ImportedNamespaces>
   </PropertyGroup>
 
   <ItemGroup>
-    <Import Include="Microsoft.Data.SqlClient" />
     <Import Include="System.Data" />
     <Import Include="System.Drawing" />
     <Import Include="System.Windows.Forms" />
@@ -26,8 +26,28 @@
   <ItemGroup>
     <PackageReference Include="DocumentFormat.OpenXml" Version="3.1.1" />
     <PackageReference Include="EPPlus" Version="7.0.10" />
-    <PackageReference Include="Microsoft.Data.SqlClient" Version="5.2.0" />
     <PackageReference Include="Microsoft.Identity.Client" Version="4.66.1" />
+    <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="8.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="ElectrotechnologyResit.Core\ElectrotechnologyResit.Core.vbproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Remove="ElectrotechnologyResit.Core/**" />
+    <Compile Remove="ElectrotechnologyResit.Tests/**" />
+    <None Remove="ElectrotechnologyResit.Core/**" />
+    <None Remove="ElectrotechnologyResit.Tests/**" />
+    <Content Remove="ElectrotechnologyResit.Core/**" />
+    <Content Remove="ElectrotechnologyResit.Tests/**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="samples\*.csv">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </Content>
   </ItemGroup>
 
   <ItemGroup>

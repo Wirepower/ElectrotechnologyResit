@@ -39,7 +39,6 @@ Partial Class Main
         CheckBox2 = New CheckBox()
         statusLabel = New Label()
         DateTimePicker1 = New DateTimePicker()
-        SqlCommand1 = New SqlCommand()
         Button8 = New Button()
         Button9 = New Button()
         Button10 = New Button()
@@ -209,11 +208,6 @@ Partial Class Main
         DateTimePicker1.Size = New Size(355, 23)
         DateTimePicker1.TabIndex = 17
         ' 
-        ' SqlCommand1
-        ' 
-        SqlCommand1.CommandTimeout = 30
-        SqlCommand1.EnableOptimizedParameterBinding = False
-        ' 
         ' Button8
         ' 
         Button8.Location = New Point(944, 107)
@@ -371,7 +365,6 @@ Partial Class Main
     Friend WithEvents CheckBox2 As CheckBox
     Friend WithEvents statusLabel As Label
     Friend WithEvents DateTimePicker1 As DateTimePicker
-    Friend WithEvents SqlCommand1 As SqlCommand
     Friend WithEvents Button8 As Button
     Friend WithEvents Button9 As Button
     Friend WithEvents Button10 As Button
