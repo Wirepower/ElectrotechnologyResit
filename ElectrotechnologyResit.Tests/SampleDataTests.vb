@@ -22,7 +22,13 @@ Public Class SampleDataTests
         For Each teacher In seed.Teachers
             Assert.EndsWith("@example.com", teacher.Email)
         Next
-        Assert.Contains(seed.Units, Function(item) item.UnitCode = "UEECD0044")
+        Dim expectedUnits = New String() {"UEECD0019", "UEECD0020", "UEECD0046", "UEEEL0005", "UEEEL0012", "UEEEL0021", "UEEEL0025"}
+        Assert.Equal(expectedUnits.Length, seed.Units.Count)
+        For Each code In expectedUnits
+            Assert.Contains(seed.Units, Function(item) item.UnitCode = code)
+            Assert.Contains(seed.Bookings, Function(item) item.UnitCode = code)
+        Next
+        Assert.Equal(14, seed.Bookings.Count)
     End Sub
 
     <Fact>
@@ -38,8 +44,8 @@ Public Class SampleDataTests
                 .FirstName = "Quinn",
                 .Surname = "Adler",
                 .Email = "quinn.adler@example.com",
-                .UnitCode = "UEECD0044",
-                .UnitName = "Solve problems in multiple path circuits",
+                .UnitCode = "UEECD0019",
+                .UnitName = "Fabricate, assemble and dismantle utilities industry components",
                 .TeacherName = "Jordan Hale",
                 .TeacherEmail = "not-used@example.com",
                 .AttemptNo = "1",

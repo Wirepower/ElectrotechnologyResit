@@ -19,10 +19,13 @@ Namespace ElectrotechnologyResit.Core
                 Teacher("Avery Quinn", "avery.quinn@example.com")
             }
             Dim units = New List(Of UnitRecord) From {
-                Unit("UEECD0044", "Solve problems in multiple path circuits"),
+                Unit("UEECD0019", "Fabricate, assemble and dismantle utilities industry components"),
+                Unit("UEECD0020", "Fix and secure electrotechnology equipment"),
+                Unit("UEECD0046", "Solve problems in single path circuits"),
+                Unit("UEEEL0005", "Develop and connect electrical control circuits"),
+                Unit("UEEEL0012", "Install low voltage wiring, appliances, switchgear and associated accessories"),
                 Unit("UEEEL0021", "Solve problems in magnetic and electromagnetic devices"),
-                Unit("HLTAID009", "Provide cardiopulmonary resuscitation"),
-                Unit("UETDRRF004", "Perform rescue from a live LV panel")
+                Unit("UEEEL0025", "Test and connect transformers")
             }
             Dim people = New List(Of StudentRecord) From {
                 Student("9000001", "Alex", "Nguyen", "BG-A"),
@@ -42,19 +45,19 @@ Namespace ElectrotechnologyResit.Core
             }
             Dim bookings = New List(Of ResitBooking) From {
                 Booking(people(0), units(0), teachers(0), night, "1", True, True),
-                Booking(people(1), units(0), teachers(0), night, "2", True, True),
-                Booking(people(2), units(1), teachers(1), night, "3", True, False),
-                Booking(people(3), units(1), teachers(1), night, "1", False, False),
-                Booking(people(4), units(2), teachers(2), night, "4", False, False),
-                Booking(people(5), units(3), teachers(3), night, "2", True, True),
-                Booking(people(6), units(3), teachers(2), recent, "1", True, False),
-                Booking(people(7), units(3), teachers(2), recent, "6", True, False),
-                Booking(people(8), units(0), teachers(0), recent, "1", False, False),
+                Booking(people(1), units(1), teachers(0), night, "2", True, False),
+                Booking(people(2), units(2), teachers(1), night, "3", False, False),
+                Booking(people(3), units(3), teachers(1), night, "1", True, True),
+                Booking(people(4), units(4), teachers(2), night, "4", True, False),
+                Booking(people(5), units(5), teachers(3), night, "2", False, True),
+                Booking(people(6), units(6), teachers(2), recent, "1", True, True),
+                Booking(people(7), units(0), teachers(2), recent, "6", False, False),
+                Booking(people(8), units(1), teachers(0), recent, "1", True, True),
                 Booking(people(9), units(2), teachers(3), recent, "3", False, True),
-                Booking(people(10), units(1), teachers(1), recent, "2", True, True),
-                Booking(people(11), units(0), teachers(0), old, "5", False, False),
-                Booking(people(12), units(2), teachers(2), old, "1", True, True),
-                Booking(people(13), units(1), teachers(3), old, "2", True, False)
+                Booking(people(10), units(3), teachers(1), recent, "2", True, False),
+                Booking(people(11), units(4), teachers(0), old, "5", False, False),
+                Booking(people(12), units(5), teachers(2), old, "1", True, True),
+                Booking(people(13), units(6), teachers(3), old, "2", True, False)
             }
             Return New SampleSnapshot With {
                 .Bookings = bookings,

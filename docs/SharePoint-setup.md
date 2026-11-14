@@ -4,7 +4,7 @@
 
 On a new install the data source is **Sample data (testing)**. Nothing is read from SharePoint. Bookings, students, teachers, units and a placeholder signature image are stored as JSON under `%LOCALAPPDATA%\ElectrotechnologyResit\SampleData`.
 
-The seed is fictional only: student IDs 9000001–9000014, names that are not real students, and `@example.com` addresses. Unit codes are the ones already used by the login sheet (`UEECD0044`, `UEEEL0021`, `HLTAID009`, `UETDRRF004`) with the short titles from `samples/units.csv`. Bookings cover three nights: today, two days ago, and sixteen days ago (so the 14-day delete has something to remove).
+The seed is fictional only: student IDs 9000001–9000014, names that are not real students, and `@example.com` addresses. Unit codes are Frank's resit units from UEE30820 Certificate III in Electrotechnology Electrician: `UEECD0019`, `UEECD0020`, `UEECD0046`, `UEEEL0005`, `UEEEL0012`, `UEEEL0021` and `UEEEL0025`, with the national unit titles. Bookings cover three nights: today, two days ago, and sixteen days ago (so the 14-day delete has something to remove).
 
 **Reset sample data** in Settings (shown only in sample mode) deletes those files and writes the seed again. It does not touch SharePoint.
 

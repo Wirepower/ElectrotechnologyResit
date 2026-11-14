@@ -333,6 +333,19 @@ Public Class LookupCacheTests
         Assert.False(ResitOutputVisibility.ShowExcel(False, False))
     End Sub
 
+    <Theory>
+    <InlineData("UEECD0019", "CD0019")>
+    <InlineData("UEECD0020", "CD0020")>
+    <InlineData("UEECD0046", "CD0046")>
+    <InlineData("UEEEL0005", "L0005")>
+    <InlineData("UEEEL0012", "L0012")>
+    <InlineData("UEEEL0021", "L0021")>
+    <InlineData("UEEEL0025", "L0025")>
+    Public Sub Cert_iii_resit_units_abbreviate_for_the_login_sheet(code As String, abbreviated As String)
+        Assert.Equal(abbreviated, UnitCodeAbbreviation.ToAbbreviatedClassCode(code))
+        Assert.Equal(abbreviated & "-RESIT-CERTIII-2026", ResitClassGroups.Build(New String() {code}, 2026))
+    End Sub
+
     Private Shared Function Booking(studentId As String, unitCode As String, night As Date) As ResitBooking
         Return New ResitBooking With {
             .StudentId = studentId,
