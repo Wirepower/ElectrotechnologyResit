@@ -150,7 +150,7 @@ Unit Code is indexed and is not unique. The same unit code can belong to a later
 
 Status is Draft, Active or Superseded. Only Active is offered for a new booking. Draft can be edited. Superseded stays readable. Abbreviation rules are one line each, `prefix UEECD=CD` or `override CODE=ABBR`, and must fit in 255 characters. The first-run setup creates this list and, when it is empty, adds UEE30820 as the Active package with its seven units.
 
-`QualificationCode` on a booking is written when the row is created and is not changed by a later package edit.
+`QualificationCode` on a booking is written when the row is created and is not changed by a later package edit. A booking that was saved before this column existed, and so has a blank code, is filled with the default Active qualification (UEE30820 when that package is Active) the next time the bookings are loaded. The filled value is then kept.
 
 ### EmailSignature (document library)
 

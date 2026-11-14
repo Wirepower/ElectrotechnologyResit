@@ -203,6 +203,12 @@ Namespace ElectrotechnologyResit.Core
             Return removed
         End Function
 
+        Public Async Function BackfillQualificationsAsync(qualificationCode As String) As Task(Of Integer) Implements IBookingService.BackfillQualificationsAsync
+            Dim filled = Await _memory.BackfillQualificationsAsync(qualificationCode).ConfigureAwait(False)
+            If filled > 0 Then SaveBookings()
+            Return filled
+        End Function
+
         Public Function SetEnergyspaceCreatedAsync(resitDate As Date, unitCode As String, value As Boolean) As Task Implements IBookingService.SetEnergyspaceCreatedAsync
             Dim task = _memory.SetEnergyspaceCreatedAsync(resitDate, unitCode, value)
             SaveBookings()

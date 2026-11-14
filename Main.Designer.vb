@@ -47,7 +47,8 @@ Partial Class Main
         CType(DataGridView1, ComponentModel.ISupportInitialize).BeginInit()
         SuspendLayout()
 
-        Dim root As New TableLayoutPanel With {.Dock = DockStyle.Fill, .ColumnCount = 1, .RowCount = 5, .Padding = New Padding(8)}
+        _mainLayout = New TableLayoutPanel With {.Dock = DockStyle.Fill, .ColumnCount = 1, .RowCount = 5, .Padding = New Padding(8)}
+        Dim root = _mainLayout
         root.ColumnStyles.Add(New ColumnStyle(SizeType.Percent, 100))
         root.RowStyles.Add(New RowStyle(SizeType.Absolute, 48))
         root.RowStyles.Add(New RowStyle(SizeType.Absolute, 128))
@@ -99,11 +100,13 @@ Partial Class Main
         root.Controls.Add(toolbar, 0, 1)
 
         DataGridView1.Dock = DockStyle.Fill
+        DataGridView1.AllowUserToAddRows = False
         DataGridView1.AllowUserToOrderColumns = True
         DataGridView1.ReadOnly = True
         DataGridView1.SelectionMode = DataGridViewSelectionMode.FullRowSelect
         DataGridView1.MultiSelect = False
-        DataGridView1.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.DisplayedCells
+        DataGridView1.ShowCellToolTips = True
+        DataGridView1.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill
         DataGridView1.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.AutoSize
         root.Controls.Add(DataGridView1, 0, 2)
 
@@ -243,7 +246,9 @@ Partial Class Main
         list.FullRowSelect = True
         list.GridLines = True
         list.HeaderStyle = ColumnHeaderStyle.Nonclickable
-        list.Dock = DockStyle.Fill
+        list.Scrollable = False
+        list.Dock = DockStyle.Top
+        list.Height = 28
         list.Columns.Add("Unit", 120)
         list.Columns.Add("Name", 320)
         panel.Controls.Add(heading, 0, 0)
@@ -279,4 +284,5 @@ Partial Class Main
     Friend LabelStudentCount As Label
     Friend LabelClassCount As Label
     Friend LabelBookedCount As Label
+    Private _mainLayout As TableLayoutPanel
 End Class

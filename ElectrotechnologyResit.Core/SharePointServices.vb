@@ -72,6 +72,22 @@ Namespace ElectrotechnologyResit.Core
             Return ids.Count
         End Function
 
+        Public Async Function BackfillQualificationsAsync(qualificationCode As String) As Task(Of Integer) Implements IBookingService.BackfillQualificationsAsync
+            Dim code = If(qualificationCode, "").Trim()
+            If code.Length = 0 Then Return 0
+            Dim rows = Await GetAllAsync().ConfigureAwait(False)
+            Dim filled = 0
+            For Each row In rows
+                If row Is Nothing OrElse Not String.IsNullOrWhiteSpace(row.QualificationCode) OrElse String.IsNullOrEmpty(row.SharePointItemId) Then Continue For
+                Dim text As New Dictionary(Of String, String) From {
+                    {SharePointColumns.QualificationCode, code}
+                }
+                Await _client.UpdateItemAsync(_listName, row.SharePointItemId, text, Nothing).ConfigureAwait(False)
+                filled += 1
+            Next
+            Return filled
+        End Function
+
         Public Async Function SetEnergyspaceCreatedAsync(resitDate As Date, unitCode As String, value As Boolean) As Task Implements IBookingService.SetEnergyspaceCreatedAsync
             Await SetFlagAsync(resitDate, unitCode, SharePointColumns.EnergyspaceClassCreated, value).ConfigureAwait(False)
         End Function

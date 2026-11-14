@@ -47,6 +47,7 @@ Public Class Main
                 ApplySampleDataCaption()
                 Me.Cursor = Cursors.WaitCursor
                 Await PurgeOldResitsAsync()
+                Await BackfillQualificationsAsync()
                 Await ReloadBookingsAsync(applyDateFilter:=True)
                 ApplyPullFromBookingsButtonVisibility()
                 _ready = True
@@ -93,6 +94,7 @@ Public Class Main
             Me.Cursor = Cursors.WaitCursor
             Await QualificationCatalog.EnsureSeedAsync(AppServices.Qualifications, AppServices.Units)
             Await PurgeOldResitsAsync()
+            Await BackfillQualificationsAsync()
             Await ReloadBookingsAsync(applyDateFilter:=True)
             ApplyPullFromBookingsButtonVisibility()
             ApplySampleDataCaption()
@@ -109,6 +111,17 @@ Public Class Main
         Label2.Text = Text
         LabelSampleBadge.Visible = AppServices.IsSampleMode
     End Sub
+
+    Private Async Function BackfillQualificationsAsync() As Task
+        If AppServices.Bookings Is Nothing OrElse AppServices.Qualifications Is Nothing Then Return
+        Try
+            Dim qualifications = Await AppServices.Qualifications.GetAllAsync()
+            Dim code = QualificationCatalog.CodeForBlankBookings(qualifications)
+            Await AppServices.Bookings.BackfillQualificationsAsync(code)
+        Catch ex As Exception
+            MessageBox.Show(Me, "Could not fill blank qualifications. " & ex.Message, "Qualifications", MessageBoxButtons.OK, MessageBoxIcon.Warning)
+        End Try
+    End Function
 
     Private Async Function PurgeOldResitsAsync() As Task
         If AppServices.Bookings Is Nothing Then Return
@@ -156,6 +169,8 @@ Public Class Main
         Try
             Dim rows = Await AppServices.Bookings.GetAllAsync()
             DataGridView1.DataSource = BookingTable.FromBookings(rows)
+            DataGridView1.AllowUserToAddRows = False
+            ApplyGridColumnLayout()
         Catch ex As Exception
             MessageBox.Show("Error: " & ex.Message)
         Finally
@@ -608,8 +623,116 @@ Public Class Main
         End Try
         UpdateTickCount(ListView1, LabelClassCount)
         UpdateTickCount(ListView2, LabelBookedCount)
+        FitEnergyspaceLists()
         UpdateResitExportButtonsVisibility()
     End Function
+
+    ''' <summary>Sizes both unit lists to their rows, with no scrollbar. The panels share the taller height and the grid keeps the rest.</summary>
+    Private Sub FitEnergyspaceLists()
+        If _mainLayout Is Nothing OrElse _fittingLists Then Return
+        _fittingLists = True
+        Try
+            PrepareUnitList(ListView1)
+            PrepareUnitList(ListView2)
+            Dim leftHeight = MeasuredListHeight(ListView1)
+            Dim rightHeight = MeasuredListHeight(ListView2)
+            Dim sharedHeight = Math.Max(leftHeight, rightHeight)
+            If sharedHeight < 28 Then sharedHeight = 28
+            Const chrome As Integer = 22 + 20 + 12
+            Dim panelHeight = sharedHeight + chrome
+            If panelHeight = _energyspaceHeight AndAlso ListView1.Height = leftHeight AndAlso ListView2.Height = rightHeight Then Return
+            _energyspaceHeight = panelHeight
+            ListView1.Height = leftHeight
+            ListView2.Height = rightHeight
+            _mainLayout.RowStyles(3) = New RowStyle(SizeType.Absolute, panelHeight)
+        Finally
+            _fittingLists = False
+        End Try
+    End Sub
+
+    Private _fittingLists As Boolean
+    Private _energyspaceHeight As Integer = -1
+
+    Private Shared Sub PrepareUnitList(list As ListView)
+        Dim twoColumns = EnergyspacePanelLayout.ColumnCount(list.Items.Count) = 2
+        list.BeginUpdate()
+        Try
+            list.Scrollable = False
+            If twoColumns Then
+                list.View = View.Tile
+                list.HeaderStyle = ColumnHeaderStyle.None
+                Dim tileWidth = Math.Max(220, (Math.Max(list.Width, 440) \ 2) - 8)
+                list.TileSize = New Size(tileWidth, 32)
+            Else
+                list.View = View.Details
+                list.HeaderStyle = ColumnHeaderStyle.Nonclickable
+                If list.Columns.Count > 0 Then list.Columns(0).Width = 120
+                If list.Columns.Count > 1 Then list.Columns(1).Width = -2
+            End If
+        Finally
+            list.EndUpdate()
+        End Try
+    End Sub
+
+    Private Shared Function MeasuredListHeight(list As ListView) As Integer
+        If Not list.IsHandleCreated Then list.CreateControl()
+        Dim rowHeight = If(list.View = View.Tile, Math.Max(list.TileSize.Height, 24), 22)
+        Dim header = 0
+        If list.Items.Count > 0 AndAlso list.View = View.Details Then
+            Dim top = list.GetItemRect(0).Top
+            header = If(top > 0, top, 24)
+            Dim measured = list.GetItemRect(0).Height
+            If measured > 0 Then rowHeight = measured
+        ElseIf list.View = View.Details Then
+            header = 24
+        End If
+        Dim height = EnergyspacePanelLayout.ListHeight(list.Items.Count, rowHeight, header)
+        If height < 1 Then height = header
+        Return height + 2
+    End Function
+
+    Private Sub Main_Resize(sender As Object, e As EventArgs) Handles MyBase.Resize
+        If Not _ready Then Return
+        FitEnergyspaceLists()
+    End Sub
+
+    Private Sub ApplyGridColumnLayout()
+        If DataGridView1.Columns.Count = 0 Then Return
+        DataGridView1.AllowUserToAddRows = False
+        DataGridView1.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill
+        For Each column As DataGridViewColumn In DataGridView1.Columns
+            Dim header = column.HeaderText
+            Dim minimum = 64
+            Dim weight = 70
+            Select Case header
+                Case "Unit"
+                    minimum = 120
+                    weight = 90
+                Case "Unit Name"
+                    minimum = 260
+                    weight = 180
+                Case "Email", "AllocatedTeacher email"
+                    minimum = 200
+                    weight = 150
+                Case "QualificationCode", "AllocatedTeacher", "Student Firstname", "Surname"
+                    minimum = 110
+                    weight = 90
+                Case "Student ID", "Blockgroup", "Resit date"
+                    minimum = 90
+                    weight = 70
+            End Select
+            column.MinimumWidth = minimum
+            column.FillWeight = weight
+        Next
+    End Sub
+
+    Private Sub DataGridView1_CellToolTipTextNeeded(sender As Object, e As DataGridViewCellToolTipTextNeededEventArgs) Handles DataGridView1.CellToolTipTextNeeded
+        If e.RowIndex < 0 OrElse e.ColumnIndex < 0 Then Return
+        Dim value = DataGridView1.Rows(e.RowIndex).Cells(e.ColumnIndex).Value
+        If value Is Nothing OrElse TypeOf value Is DBNull Then Return
+        Dim text = Convert.ToString(value)
+        If text.Length > 0 Then e.ToolTipText = text
+    End Sub
 
     Private Shared Sub UpdateTickCount(list As ListView, label As Label)
         Dim ticked = 0

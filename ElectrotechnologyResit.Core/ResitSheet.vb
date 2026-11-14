@@ -24,6 +24,35 @@ Namespace ElectrotechnologyResit.Core
         End Function
     End Class
 
+    ''' <summary>Height of the Energyspace unit lists. One column until there are many units, then two columns of code and name.</summary>
+    Public NotInheritable Class EnergyspacePanelLayout
+        Public Const ManyUnitThreshold As Integer = 9
+
+        Private Sub New()
+        End Sub
+
+        Public Shared Function ColumnCount(itemCount As Integer) As Integer
+            If itemCount >= ManyUnitThreshold Then Return 2
+            Return 1
+        End Function
+
+        Public Shared Function RowCount(itemCount As Integer) As Integer
+            If itemCount <= 0 Then Return 0
+            Dim columns = ColumnCount(itemCount)
+            Return CInt(Math.Ceiling(itemCount / CDbl(columns)))
+        End Function
+
+        Public Shared Function ListHeight(itemCount As Integer, rowHeight As Integer, headerHeight As Integer) As Integer
+            If rowHeight < 1 Then rowHeight = 1
+            If headerHeight < 0 Then headerHeight = 0
+            Return headerHeight + (RowCount(itemCount) * rowHeight)
+        End Function
+
+        Public Shared Function SharedListHeight(leftCount As Integer, rightCount As Integer, rowHeight As Integer, headerHeight As Integer) As Integer
+            Return Math.Max(ListHeight(leftCount, rowHeight, headerHeight), ListHeight(rightCount, rowHeight, headerHeight))
+        End Function
+    End Class
+
     ''' <summary>Excel appears when either Energyspace list has a tick. The Word sheet appears only for Class Created.</summary>
     Public NotInheritable Class ResitOutputVisibility
         Private Sub New()

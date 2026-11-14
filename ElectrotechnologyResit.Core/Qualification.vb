@@ -186,6 +186,22 @@ Namespace ElectrotechnologyResit.Core
             Next
         End Function
 
+        ''' <summary>Blank bookings are stored as this qualification. An Active UEE30820 wins, otherwise the first Active package, otherwise UEE30820.</summary>
+        Public Shared Function CodeForBlankBookings(qualifications As IEnumerable(Of QualificationRecord)) As String
+            Dim firstActive = ""
+            If qualifications IsNot Nothing Then
+                For Each qualification In qualifications
+                    If qualification Is Nothing OrElse Not QualificationStatus.OfferedForNewBookings(qualification.Status) Then Continue For
+                    Dim code = If(qualification.QualificationCode, "").Trim()
+                    If code.Length = 0 Then Continue For
+                    If code.Equals("UEE30820", StringComparison.OrdinalIgnoreCase) Then Return code
+                    If firstActive.Length = 0 Then firstActive = code
+                Next
+            End If
+            If firstActive.Length > 0 Then Return firstActive
+            Return "UEE30820"
+        End Function
+
         Private Shared Function PackagedUnit(qualificationCode As String, code As String, title As String) As UnitRecord
             Return New UnitRecord With {.QualificationCode = qualificationCode, .UnitCode = code, .UnitTitle = title}
         End Function

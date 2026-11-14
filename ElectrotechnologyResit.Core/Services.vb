@@ -9,6 +9,7 @@ Namespace ElectrotechnologyResit.Core
         Function DeleteByStudentIdAsync(studentId As String) As Task
         Function DeleteByDateAsync(resitDate As Date) As Task
         Function DeleteOnOrBeforeAsync(cutoff As Date) As Task(Of Integer)
+        Function BackfillQualificationsAsync(qualificationCode As String) As Task(Of Integer)
         Function SetEnergyspaceCreatedAsync(resitDate As Date, unitCode As String, value As Boolean) As Task
         Function SetEnergyspaceAssessmentBookedAsync(resitDate As Date, unitCode As String, value As Boolean) As Task
         Function GetUnitFlagsAsync(resitDate As Date) As Task(Of IReadOnlyList(Of UnitNightFlags))
@@ -174,6 +175,19 @@ Namespace ElectrotechnologyResit.Core
 
         Public Function DeleteOnOrBeforeAsync(cutoff As Date) As Task(Of Integer) Implements IBookingService.DeleteOnOrBeforeAsync
             Return Task.FromResult(RemoveCounted(Function(item) item.ResitDate.Date <= cutoff.Date))
+        End Function
+
+        Public Function BackfillQualificationsAsync(qualificationCode As String) As Task(Of Integer) Implements IBookingService.BackfillQualificationsAsync
+            Dim code = If(qualificationCode, "").Trim()
+            If code.Length = 0 Then Return Task.FromResult(0)
+            Dim filled = 0
+            For Each booking In _bookings.Values
+                If String.IsNullOrWhiteSpace(booking.QualificationCode) Then
+                    booking.QualificationCode = code
+                    filled += 1
+                End If
+            Next
+            Return Task.FromResult(filled)
         End Function
 
         Public Function SetEnergyspaceCreatedAsync(resitDate As Date, unitCode As String, value As Boolean) As Task Implements IBookingService.SetEnergyspaceCreatedAsync

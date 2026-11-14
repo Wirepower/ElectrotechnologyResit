@@ -435,6 +435,44 @@ Public Class LookupCacheTests
     End Sub
 
     <Fact>
+    Public Sub Energyspace_lists_grow_to_every_unit_and_fold_into_two_columns_when_there_are_many()
+        Assert.Equal(1, EnergyspacePanelLayout.ColumnCount(7))
+        Assert.Equal(7, EnergyspacePanelLayout.RowCount(7))
+        Assert.Equal(24 + (7 * 20), EnergyspacePanelLayout.ListHeight(7, 20, 24))
+        Assert.Equal(2, EnergyspacePanelLayout.ColumnCount(9))
+        Assert.Equal(5, EnergyspacePanelLayout.RowCount(9))
+        Assert.Equal(24 + (7 * 20), EnergyspacePanelLayout.SharedListHeight(7, 3, 20, 24))
+    End Sub
+
+    <Fact>
+    Public Async Function Blank_qualifications_are_filled_with_the_active_package_and_set_codes_stay() As Task
+        Dim store As New InMemoryResitStore()
+        Await store.UpsertAsync(New QualificationRecord With {.QualificationCode = "UEE30820", .Status = QualificationStatus.Active})
+        Await store.UpsertAsync(New ResitBooking With {.StudentId = "9000001", .ResitDate = New Date(2026, 11, 1)}, False)
+        Await store.UpsertAsync(New ResitBooking With {.StudentId = "9000002", .ResitDate = New Date(2026, 11, 1), .QualificationCode = "UEE50000"}, False)
+        Dim code = QualificationCatalog.CodeForBlankBookings(Await store.GetQualificationsAsync())
+        Assert.Equal("UEE30820", code)
+        Assert.Equal(1, Await store.BackfillQualificationsAsync(code))
+        Dim rows = Await store.GetBookingsAsync()
+        Assert.Equal("UEE30820", rows.Single(Function(item) item.StudentId = "9000001").QualificationCode)
+        Assert.Equal("UEE50000", rows.Single(Function(item) item.StudentId = "9000002").QualificationCode)
+        Assert.Equal(0, Await store.BackfillQualificationsAsync(code))
+    End Function
+
+    <Fact>
+    Public Async Function SharePoint_backfill_writes_only_the_qualification_on_blank_rows() As Task
+        Dim client As New RecordingSharePointClient()
+        client.Items.Add(BookingItem("11", "2026-11-01"))
+        Dim kept = BookingItem("22", "2026-11-01")
+        kept.Fields.SetString(SharePointColumns.QualificationCode, "UEE50000")
+        client.Items.Add(kept)
+        Dim service As New SharePointBookingService(client, SharePointListNames.Default(), New InMemoryResitStore())
+        Assert.Equal(1, Await service.BackfillQualificationsAsync("UEE30820"))
+        Assert.Equal("UEE30820", client.LastText(SharePointColumns.QualificationCode))
+        Assert.False(client.LastText.ContainsKey(SharePointColumns.StudentId))
+    End Function
+
+    <Fact>
     Public Async Function SharePoint_purge_filters_the_indexed_resit_date_and_returns_the_count() As Task
         Dim client As New RecordingSharePointClient()
         client.Items.Add(BookingItem("11", "2026-10-01"))
