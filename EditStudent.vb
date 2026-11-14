@@ -53,8 +53,8 @@ Public Class EditStudent
                 ComboBox1.Text = CellText(row, "AllocatedTeacher")
                 ComboBox2.Text = CellText(row, "Unit")
                 ComboBox3.Text = CellText(row, "AttemptNo")
-                ComboBox5.Text = If(YesNoBoolean.Parse(CellText(row, "EnergyspaceClassCreated")), "True", "False")
-                ComboBox4.Text = If(YesNoBoolean.Parse(CellText(row, "EnergyspaceAssessmentBooked")), "True", "False")
+                ComboBox5.Text = YesNoBoolean.ToYesNo(YesNoBoolean.Parse(CellText(row, "EnergyspaceClassCreated")))
+                ComboBox4.Text = YesNoBoolean.ToYesNo(YesNoBoolean.Parse(CellText(row, "EnergyspaceAssessmentBooked")))
                 txtBlockgroup.Text = CellText(row, "Blockgroup")
                 lblUnit.Text = CellText(row, "Unit Name")
                 Await ShowTeacherEmailAsync(ComboBox1.Text)
@@ -183,8 +183,8 @@ Public Class EditStudent
                 TextBox4.Text = student.FamilyName
                 TextBox5.Text = student.PersonalEmail
                 txtBlockgroup.Text = student.BlockGroupCode
-                ComboBox5.Text = "False"
-                ComboBox4.Text = "False"
+                ComboBox5.Text = YesNoBoolean.ToYesNo(False)
+                ComboBox4.Text = YesNoBoolean.ToYesNo(False)
             Else
                 MessageBox.Show("No record found for the provided Student ID.")
                 TextBox3.Clear()

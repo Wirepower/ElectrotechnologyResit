@@ -167,7 +167,7 @@ Partial Class EditStudent
         ' ComboBox5
         ' 
         ComboBox5.FormattingEnabled = True
-        ComboBox5.Items.AddRange(New Object() {"True", "False"})
+        ComboBox5.Items.AddRange(New Object() {"Yes", "No"})
         ComboBox5.Location = New Point(45, 399)
         ComboBox5.Name = "ComboBox5"
         ComboBox5.Size = New Size(157, 23)
@@ -176,7 +176,7 @@ Partial Class EditStudent
         ' ComboBox4
         ' 
         ComboBox4.FormattingEnabled = True
-        ComboBox4.Items.AddRange(New Object() {"True", "False"})
+        ComboBox4.Items.AddRange(New Object() {"Yes", "No"})
         ComboBox4.Location = New Point(295, 399)
         ComboBox4.Name = "ComboBox4"
         ComboBox4.Size = New Size(157, 23)

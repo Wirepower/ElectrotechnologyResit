@@ -170,6 +170,5 @@ Do not put real student data in this repository, in tests, or in logs.
 
 ## Still for Frank to decide
 
-- **Edit Student** accepts Yes, No, True and False in `YesNoBoolean`. That is the only place the rule lives, so it can be changed without hunting through the forms.
 - Whether IT will approve `Sites.Manage.All` plus `Sites.ReadWrite.All`, or `Sites.Selected` with permission to create lists on the site.
 - Whether live Microsoft Bookings should ever be switched on. Until then the button stays hidden.

@@ -31,6 +31,11 @@ Namespace ElectrotechnologyResit.Core
             If TryParse(text, value) Then Return value
             Return False
         End Function
+
+        ''' <summary>Text shown in the Edit Student Energyspace combos. Yes is ticked, No is not.</summary>
+        Public Shared Function ToYesNo(value As Boolean) As String
+            Return If(value, "Yes", "No")
+        End Function
     End Class
 
     Public NotInheritable Class EnglishOrdinal

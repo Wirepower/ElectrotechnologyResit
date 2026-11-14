@@ -88,6 +88,18 @@ Public Class BugFixTests
     End Function
 
     <Fact>
+    Public Sub Edit_yes_saves_as_ticked_and_a_stored_flag_loads_as_yes_or_no()
+        Assert.True(YesNoBoolean.Parse("Yes"))
+        Assert.False(YesNoBoolean.Parse("No"))
+        Assert.Equal("Yes", YesNoBoolean.ToYesNo(True))
+        Assert.Equal("No", YesNoBoolean.ToYesNo(False))
+        Assert.Equal("Yes", YesNoBoolean.ToYesNo(YesNoBoolean.Parse("True")))
+        Assert.Equal("No", YesNoBoolean.ToYesNo(YesNoBoolean.Parse("False")))
+        Assert.True(YesNoBoolean.Parse(YesNoBoolean.ToYesNo(True)))
+        Assert.False(YesNoBoolean.Parse(YesNoBoolean.ToYesNo(False)))
+    End Sub
+
+    <Fact>
     Public Sub Yes_no_true_false_parse_in_one_function()
         Assert.True(YesNoBoolean.Parse("Yes"))
         Assert.True(YesNoBoolean.Parse("yes"))
