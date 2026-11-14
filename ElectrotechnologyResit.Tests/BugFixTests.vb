@@ -435,6 +435,13 @@ Public Class LookupCacheTests
     End Sub
 
     <Fact>
+    Public Sub Student_forms_drop_the_spare_width_when_lookup_labels_are_hidden()
+        Assert.Equal(530, StudentFormWidth.ForLookupLabels(True, 530, 482, 16))
+        Assert.Equal(498, StudentFormWidth.ForLookupLabels(False, 530, 482, 16))
+        Assert.Equal(530, StudentFormWidth.ForLookupLabels(False, 530, 600, 16))
+    End Sub
+
+    <Fact>
     Public Sub Energyspace_lists_grow_to_every_unit_and_fold_into_two_columns_when_there_are_many()
         Assert.Equal(1, EnergyspacePanelLayout.ColumnCount(7))
         Assert.Equal(7, EnergyspacePanelLayout.RowCount(7))

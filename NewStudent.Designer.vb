@@ -271,6 +271,7 @@ Partial Class NewStudent
         lblTeacherEmail.Name = "lblTeacherEmail"
         lblTeacherEmail.Size = New Size(171, 15)
         lblTeacherEmail.TabIndex = 29
+        lblTeacherEmail.Visible = False
         ' 
         ' lblUnit
         ' 
@@ -279,6 +280,7 @@ Partial Class NewStudent
         lblUnit.Name = "lblUnit"
         lblUnit.Size = New Size(181, 55)
         lblUnit.TabIndex = 30
+        lblUnit.Visible = False
         ' 
         ' DateTimePicker1
         ' 

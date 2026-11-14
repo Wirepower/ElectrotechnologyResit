@@ -3,12 +3,14 @@ Imports ElectrotechnologyResit.Core
 Public Class NewStudent
     Private ReadOnly _qualification As New ComboBox()
     Private _units As IReadOnlyList(Of UnitRecord) = Array.Empty(Of UnitRecord)()
+    Private _designedWidth As Integer
 
     Private Sub Button2_Click(sender As Object, e As EventArgs) Handles Button2.Click
         Me.Close()
     End Sub
 
     Private Async Sub NewStudent_Load(sender As Object, e As EventArgs) Handles MyBase.Load
+        If _designedWidth = 0 Then _designedWidth = ClientSize.Width
         _qualification.DropDownStyle = ComboBoxStyle.DropDownList
         _qualification.Location = New Point(182, 92)
         _qualification.Size = New Size(157, 23)
@@ -17,6 +19,7 @@ Public Class NewStudent
         AddHandler _qualification.SelectedIndexChanged, AddressOf QualificationChanged
         Await PopulateTeacherComboBox()
         Await PopulateUnitComboBox()
+        StudentFormLookupLabels.Apply(Me, lblTeacherEmail, lblUnit, _designedWidth)
     End Sub
 
     Private Async Function PopulateUnitComboBox() As Task

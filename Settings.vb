@@ -5,6 +5,7 @@ Public Class Settings
     Private ButtonResetSample As Button
     Private ButtonTestConnection As Button
     Private ButtonImportCsv As Button
+    Private CheckBoxShowLookupLabels As CheckBox
 
     Private Sub Settings_Load(sender As Object, e As EventArgs) Handles MyBase.Load
         BuildDataSourceControls()
@@ -39,7 +40,13 @@ Public Class Settings
         }
         sourceGroup.Controls.Add(ComboBoxDataSource)
         sourceGroup.Controls.Add(ButtonResetSample)
+        CheckBoxShowLookupLabels = New CheckBox With {
+            .Text = "Show teacher email and unit name on student forms",
+            .AutoSize = True,
+            .Location = New Point(700, 30)
+        }
         sourceGroup.Controls.Add(qualificationsButton)
+        sourceGroup.Controls.Add(CheckBoxShowLookupLabels)
         AddHandler qualificationsButton.Click, Sub()
                                                     ApplySharePointFields()
                                                     My.Settings.Save()
@@ -102,6 +109,7 @@ Public Class Settings
         TextBoxBookingsTenant.Text = My.Settings.BookingsAzureTenantId
         TextBoxBookingsBusinessId.Text = My.Settings.BookingsBusinessId
         CheckBoxShowPullFromBookingsButton.Checked = My.Settings.ShowPullFromBookingsButton
+        CheckBoxShowLookupLabels.Checked = My.Settings.ShowTeacherEmailAndUnitName
     End Sub
 
     Private Sub ApplySharePointFields()
@@ -227,6 +235,7 @@ Public Class Settings
         My.Settings.BookingsAzureTenantId = TextBoxBookingsTenant.Text.Trim()
         My.Settings.BookingsBusinessId = TextBoxBookingsBusinessId.Text.Trim()
         My.Settings.ShowPullFromBookingsButton = CheckBoxShowPullFromBookingsButton.Checked
+        My.Settings.ShowTeacherEmailAndUnitName = CheckBoxShowLookupLabels.Checked
         My.Settings.Save()
         Me.Hide()
         MessageBox.Show("Settings Saved, Please Restart Application", "Application Restart", MessageBoxButtons.OK)

@@ -6,12 +6,14 @@ Public Class EditStudent
     Private ReadOnly _qualification As New Label()
     Private _storedQualification As String = ""
     Private _units As IReadOnlyList(Of UnitRecord) = Array.Empty(Of UnitRecord)()
+    Private _designedWidth As Integer
 
     Private Sub Button2_Click(sender As Object, e As EventArgs) Handles Button2.Click
         Me.Close()
     End Sub
 
     Private Async Sub EditStudent_Load(sender As Object, e As EventArgs) Handles MyBase.Load
+        If _designedWidth = 0 Then _designedWidth = ClientSize.Width
         _qualification.AutoSize = True
         _qualification.Location = New Point(184, 96)
         Controls.Add(New Label With {.AutoSize = True, .Location = New Point(96, 96), .Text = "Qualification"})
@@ -25,6 +27,7 @@ Public Class EditStudent
             Button3.Enabled = False
             Button4.Enabled = False
         End If
+        StudentFormLookupLabels.Apply(Me, lblTeacherEmail, lblUnit, _designedWidth)
     End Sub
 
     Private Async Function PopulateUnitComboBox() As Task

@@ -53,6 +53,20 @@ Namespace ElectrotechnologyResit.Core
         End Function
     End Class
 
+    ''' <summary>Student forms are narrower when the teacher-email and unit-name labels are hidden.</summary>
+    Public NotInheritable Class StudentFormWidth
+        Private Sub New()
+        End Sub
+
+        Public Shared Function ForLookupLabels(showLabels As Boolean, designedWidth As Integer, contentRightWithoutLabels As Integer, margin As Integer) As Integer
+            If designedWidth < 1 Then Return 0
+            If showLabels Then Return designedWidth
+            Dim fitted = contentRightWithoutLabels + Math.Max(margin, 0)
+            If fitted < 1 Then Return designedWidth
+            Return Math.Min(designedWidth, fitted)
+        End Function
+    End Class
+
     ''' <summary>Excel appears when either Energyspace list has a tick. The Word sheet appears only for Class Created.</summary>
     Public NotInheritable Class ResitOutputVisibility
         Private Sub New()

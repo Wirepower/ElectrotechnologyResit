@@ -285,6 +285,7 @@ Partial Class EditStudent
         lblUnit.Name = "lblUnit"
         lblUnit.Size = New Size(181, 55)
         lblUnit.TabIndex = 59
+        lblUnit.Visible = False
         ' 
         ' lblTeacherEmail
         ' 
@@ -292,6 +293,7 @@ Partial Class EditStudent
         lblTeacherEmail.Name = "lblTeacherEmail"
         lblTeacherEmail.Size = New Size(171, 15)
         lblTeacherEmail.TabIndex = 58
+        lblTeacherEmail.Visible = False
         ' 
         ' Button5
         ' 
