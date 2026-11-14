@@ -1,5 +1,19 @@
 # SharePoint setup for Electrotechnology Resit
 
+## Sample data (testing)
+
+On a new install the data source is **Sample data (testing)**. Nothing is read from SharePoint. Bookings, students, teachers, units and a placeholder signature image are stored as JSON under `%LOCALAPPDATA%\ElectrotechnologyResit\SampleData`.
+
+The seed is fictional only: student IDs 9000001–9000014, names that are not real students, and `@example.com` addresses. Unit codes are the ones already used by the login sheet (`UEECD0044`, `UEEEL0021`, `HLTAID009`, `UETDRRF004`) with the short titles from `samples/units.csv`. Bookings cover three nights: today, two days ago, and sixteen days ago (so the 14-day delete has something to remove).
+
+**Reset sample data** in Settings (shown only in sample mode) deletes those files and writes the seed again. It does not touch SharePoint.
+
+The main window title and status line say **SAMPLE DATA**. Teacher email still opens Outlook, but only to display the messages. They are not sent, because the addresses are fake.
+
+Switch the data source to **SharePoint**, then Save and Exit. If the site or lists are not set up, the first-run wizard runs. Sign in / Test connection, Run first-time setup, and Import CSV/Excel are on the SharePoint section of Settings. The client ID is a public client. The only token store is the MSAL cache on this PC. No client secret is kept.
+
+Do not put real student names, IDs or emails in the sample files, tests, or this guide.
+
 Owner: Frank Offer, Victoria University, Sunshine.
 
 This desktop app no longer uses SQL Server. Every booking, student lookup, teacher, unit and email-signature image is read and written in SharePoint through Microsoft Graph, as the person who is signed in.

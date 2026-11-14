@@ -115,6 +115,18 @@ Namespace ElectrotechnologyResit.Core
         Public Property SignatureImage As Byte()
         Public Property StudentLookupCount As Integer
 
+        Public Sub ClearAll()
+            _bookings.Clear()
+            _students.Clear()
+            _teachers.Clear()
+            _units.Clear()
+            SignatureImage = Nothing
+        End Sub
+
+        Public Function ExportStudents() As IReadOnlyList(Of StudentRecord)
+            Return _students.Values.Select(Function(item) item.Clone()).ToList()
+        End Function
+
         Public Function GetBookingsAsync() As Task(Of IReadOnlyList(Of ResitBooking)) Implements IBookingService.GetAllAsync
             Return Task.FromResult(Of IReadOnlyList(Of ResitBooking))(ClonedBookings(_bookings.Values))
         End Function

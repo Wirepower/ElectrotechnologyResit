@@ -39,6 +39,22 @@ Public Class Main
     End Sub
 
     Private Async Sub Main_Load(sender As Object, e As EventArgs) Handles MyBase.Load
+        If AppServices.IsSampleMode Then
+            Try
+                AppServices.ConfigureFromSettings(Function() CType(Me, IWin32Window))
+                ApplySampleDataCaption()
+                Me.Cursor = Cursors.WaitCursor
+                Await ReloadBookingsAsync(applyDateFilter:=True)
+                ApplyPullFromBookingsButtonVisibility()
+                _ready = True
+            Catch ex As Exception
+                MessageBox.Show("Error: " & ex.Message)
+            Finally
+                Me.Cursor = Cursors.Default
+            End Try
+            Return
+        End If
+
         If AppServices.NeedsWizard() Then
             Using wizard As New SetupWizard()
                 If wizard.ShowDialog(Me) <> DialogResult.OK Then
@@ -74,12 +90,27 @@ Public Class Main
             Me.Cursor = Cursors.WaitCursor
             Await ReloadBookingsAsync(applyDateFilter:=True)
             ApplyPullFromBookingsButtonVisibility()
+            ApplySampleDataCaption()
             _ready = True
         Catch ex As Exception
             MessageBox.Show("Error: " & ex.Message)
         Finally
             Me.Cursor = Cursors.Default
         End Try
+    End Sub
+
+    Public Sub ApplySampleDataCaption()
+        Dim baseTitle = "Electrotechnology Resit — " & AppVersion.DisplayText
+        If AppServices.IsSampleMode Then
+            Text = baseTitle & " — SAMPLE DATA"
+            statusLabel.AutoSize = True
+            statusLabel.MaximumSize = New Size(1100, 0)
+            statusLabel.Text = "SAMPLE DATA — fictional bookings only. Outlook will display teacher emails and will not send them."
+            statusLabel.ForeColor = Color.DarkRed
+        Else
+            Text = baseTitle
+            statusLabel.Text = ""
+        End If
     End Sub
 
     Private Async Function OfferSchemaRepairAsync() As Task
@@ -183,6 +214,24 @@ Public Class Main
             Return
         End Try
 
+        Dim displayMail = CheckBox1.Checked
+        Dim sendMail = CheckBox2.Checked
+        If AppServices.IsSampleMode Then
+            Dim proceed = MessageBox.Show(
+                "SAMPLE DATA. The teacher addresses are fictional (@example.com)." & vbCrLf & vbCrLf &
+                "Outlook will display each message so you can check it. Nothing will be sent.",
+                "Sample data",
+                MessageBoxButtons.OKCancel,
+                MessageBoxIcon.Information)
+            If proceed <> DialogResult.OK Then Return
+            displayMail = True
+            sendMail = False
+            _emailModeGuard = True
+            CheckBox1.Checked = True
+            CheckBox2.Checked = False
+            _emailModeGuard = False
+        End If
+
         Dim outlookApp As Object = OutlookInterop.TryCreateOutlookApplication()
         If outlookApp Is Nothing Then
             MessageBox.Show("Microsoft Outlook could not be started. Install Outlook (desktop) and try again.", "Outlook required", MessageBoxButtons.OK, MessageBoxIcon.Warning)
@@ -213,7 +262,7 @@ Public Class Main
                 End If
                 Dim html As String = "<html><body><font color='black'>" & body & "</font></body>" & imgHtml & "</html>"
                 Dim subject As String = "One of your students has been booked into a resit night on " & formattedResitDate
-                OutlookInterop.CreateDisplayOrSendMail(outlookApp, booking.TeacherEmail, subject, html, "Electrotechnology.admin@vu.edu.au", CheckBox1.Checked, CheckBox2.Checked)
+                OutlookInterop.CreateDisplayOrSendMail(outlookApp, booking.TeacherEmail, subject, html, "Electrotechnology.admin@vu.edu.au", displayMail, sendMail)
             Next
         Catch ex As Exception
             MessageBox.Show("Error: " & ex.Message)

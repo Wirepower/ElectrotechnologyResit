@@ -93,10 +93,18 @@ Public Module AppServices
     Public Property Provisioner As ISharePointProvisioner
     Public Property LookupImport As LookupImportService
     Public Property Client As ISharePointClient
+    Public Property Sample As SampleDataStore
 
     Private _configuredKey As String
 
+    Public ReadOnly Property IsSampleMode As Boolean
+        Get
+            Return Not String.Equals(If(My.Settings.DataSource, ""), "SharePoint", StringComparison.OrdinalIgnoreCase)
+        End Get
+    End Property
+
     Public Function NeedsWizard() As Boolean
+        If IsSampleMode Then Return False
         Return String.IsNullOrWhiteSpace(My.Settings.SharePointSiteUrl) OrElse
             String.IsNullOrWhiteSpace(My.Settings.GraphClientId) OrElse
             Not My.Settings.SharePointSetupCompleted
@@ -104,20 +112,52 @@ Public Module AppServices
 
     Public Sub ConfigureFromSettings(owner As Func(Of IWin32Window))
         Dim names = CurrentNames()
-        Dim key = String.Join("|", My.Settings.SharePointSiteUrl, My.Settings.GraphClientId, My.Settings.GraphTenantId, My.Settings.GraphUseSitesSelected.ToString(), names.Bookings, names.Students, names.Teachers, names.Units, names.SignatureLibrary)
+        Dim mode = If(IsSampleMode, "Sample", "SharePoint")
+        Dim key = mode & "|" & String.Join("|", My.Settings.SharePointSiteUrl, My.Settings.GraphClientId, My.Settings.GraphTenantId, My.Settings.GraphUseSitesSelected.ToString(), names.Bookings, names.Students, names.Teachers, names.Units, names.SignatureLibrary)
         If key = _configuredKey AndAlso Bookings IsNot Nothing Then Return
-        Dim provider As New MsalTokenProvider(My.Settings.GraphClientId, My.Settings.GraphTenantId, My.Settings.GraphUseSitesSelected, owner)
-        Dim graph As New GraphSharePointClient(New GraphExecutor(New GraphHttpTransport(provider)), My.Settings.SharePointSiteUrl)
-        Client = graph
-        Students = New CachingStudentDirectory(New SharePointStudentDirectory(graph, names))
-        Teachers = New CachingTeacherDirectory(New SharePointTeacherDirectory(graph, names))
-        Bookings = New SharePointBookingService(graph, names, Teachers)
-        Units = New CachingUnitDirectory(New SharePointUnitDirectory(graph, names))
-        Signature = New SharePointSignatureStore(graph, names)
-        Provisioner = New ListProvisioner(New GraphSchemaStore(graph, names), names)
-        LookupImport = New LookupImportService(Students, Teachers, Units)
+        If IsSampleMode Then
+            Sample = New SampleDataStore(SampleDataStore.DefaultFolder(), MelbourneCalendar.Today())
+            Bookings = Sample
+            Students = Sample
+            Teachers = Sample
+            Units = Sample
+            Signature = Sample
+            Client = Nothing
+            Provisioner = Nothing
+            LookupImport = New LookupImportService(Sample, Sample, Sample)
+        Else
+            Dim provider As New MsalTokenProvider(My.Settings.GraphClientId, My.Settings.GraphTenantId, My.Settings.GraphUseSitesSelected, owner)
+            Dim graph As New GraphSharePointClient(New GraphExecutor(New GraphHttpTransport(provider)), My.Settings.SharePointSiteUrl)
+            Client = graph
+            Students = New CachingStudentDirectory(New SharePointStudentDirectory(graph, names))
+            Teachers = New CachingTeacherDirectory(New SharePointTeacherDirectory(graph, names))
+            Bookings = New SharePointBookingService(graph, names, Teachers)
+            Units = New CachingUnitDirectory(New SharePointUnitDirectory(graph, names))
+            Signature = New SharePointSignatureStore(graph, names)
+            Provisioner = New ListProvisioner(New GraphSchemaStore(graph, names), names)
+            LookupImport = New LookupImportService(Students, Teachers, Units)
+            Sample = Nothing
+        End If
         _configuredKey = key
     End Sub
+
+    Public Async Function TestSharePointConnectionAsync(owner As Func(Of IWin32Window)) As Task(Of SiteAccessResult)
+        Try
+            If String.IsNullOrWhiteSpace(My.Settings.GraphClientId) Then
+                Return SiteAccessResult.Failed("Set the Azure AD application (client) ID in Settings, then try again.")
+            End If
+            If String.IsNullOrWhiteSpace(My.Settings.SharePointSiteUrl) Then
+                Return SiteAccessResult.Failed("Set the SharePoint site URL in Settings, then try again.")
+            End If
+            Dim provider As New MsalTokenProvider(My.Settings.GraphClientId, My.Settings.GraphTenantId, My.Settings.GraphUseSitesSelected, owner)
+            Dim graph As New GraphSharePointClient(New GraphExecutor(New GraphHttpTransport(provider)), My.Settings.SharePointSiteUrl)
+            Dim site = Await graph.GetSiteAsync().ConfigureAwait(True)
+            Dim siteName = If(String.IsNullOrWhiteSpace(site.DisplayName), My.Settings.SharePointSiteUrl, site.DisplayName)
+            Return SiteAccessResult.Succeeded("Signed in. SharePoint site: " & siteName)
+        Catch ex As Exception
+            Return SiteAccessResult.Failed("Could not sign in or open the SharePoint site. " & ex.Message)
+        End Try
+    End Function
 
     Public Function CurrentNames() As SharePointListNames
         Return SharePointListNames.FromSettings(

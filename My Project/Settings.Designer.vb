@@ -257,6 +257,18 @@ Namespace My
                 Me("SharePointSetupCompleted") = value
             End Set
         End Property
+
+        <Global.System.Configuration.UserScopedSettingAttribute(),  _
+         Global.System.Diagnostics.DebuggerNonUserCodeAttribute(),  _
+         Global.System.Configuration.DefaultSettingValueAttribute("Sample")>  _
+        Public Property DataSource() As String
+            Get
+                Return CType(Me("DataSource"),String)
+            End Get
+            Set
+                Me("DataSource") = value
+            End Set
+        End Property
     End Class
 End Namespace
 

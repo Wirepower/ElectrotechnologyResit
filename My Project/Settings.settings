@@ -53,5 +53,8 @@
     <Setting Name="SharePointSetupCompleted" Type="System.Boolean" Scope="User">
       <Value Profile="(Default)">False</Value>
     </Setting>
+    <Setting Name="DataSource" Type="System.String" Scope="User">
+      <Value Profile="(Default)">Sample</Value>
+    </Setting>
   </Settings>
 </SettingsFile>
