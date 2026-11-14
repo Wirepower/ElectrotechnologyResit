@@ -2,10 +2,26 @@ Imports System.Globalization
 Imports System.Linq
 Imports System.Text.Json
 Imports System.Text.RegularExpressions
-Imports Microsoft.Data.SqlClient
+Imports ElectrotechnologyResit.Core
 
-''' <summary>Maps Microsoft Bookings appointments to ElectrotechnologyReports.dbo.ElectricalResit rows.</summary>
+' TODO: Live Microsoft Bookings is owned by VU Timetable (a separate app) and needs Frank Offer's sign-off.
+' This import stays hidden behind ShowPullFromBookingsButton. Do not extend it into a supported live pull.
+
+''' <summary>Maps Microsoft Bookings appointments onto resit bookings. Writes go through IBookingService and keep existing Energyspace flags.</summary>
 Friend NotInheritable Class BookingsDataImporter
+    Implements IBookingImporter
+
+    Private ReadOnly _owner As Form
+    Private ReadOnly _bookings As IBookingService
+
+    Public Sub New(owner As Form, bookings As IBookingService)
+        _owner = owner
+        _bookings = bookings
+    End Sub
+
+    Public Function PullAsync(resitDate As Date) As Task(Of String) Implements IBookingImporter.PullAsync
+        Return PullFromBookingsAsync(_owner, resitDate, _bookings)
+    End Function
     Private Shared ReadOnly IdRegex As New Regex("\b\d{6,10}\b", RegexOptions.Compiled)
     ''' <summary>First token like UEECO0023 from "UEECO0023 Long unit title…"</summary>
     Private Shared ReadOnly UnitCodeRegex As New Regex("^\s*([A-Za-z]{2,}\d+[A-Za-z0-9]*)\b", RegexOptions.Compiled)
@@ -19,7 +35,7 @@ Friend NotInheritable Class BookingsDataImporter
         Public EnergySpaceEmail As String
     End Structure
 
-    Friend Shared Async Function PullFromBookingsAsync(owner As Form, resitDate As Date) As Task(Of String)
+    Friend Shared Async Function PullFromBookingsAsync(owner As Form, resitDate As Date, bookings As IBookingService) As Task(Of String)
         Dim clientId = My.Settings.BookingsAzureClientId
         If String.IsNullOrWhiteSpace(clientId) Then
             Return "Set the Azure AD application (client) ID in Settings (Microsoft Bookings / Graph section), then try again."
@@ -116,7 +132,7 @@ Friend NotInheritable Class BookingsDataImporter
 
                     Dim blockgroup = If(vu.Blockgroup, "").Trim()
 
-                    Dim result = UpsertResitRow(studentId, firstName, lastName, email, teacher, teacherEmail, unitCode, unitName, attemptNo, blockgroup, resitDateStr)
+                    Dim result = Await UpsertResitRow(bookings, studentId, firstName, lastName, email, teacher, teacherEmail, unitCode, unitName, attemptNo, blockgroup, resitDateStr).ConfigureAwait(True)
                     If result = 1 Then inserted += 1
                     If result = 2 Then updated += 1
                 End Using
@@ -305,8 +321,9 @@ Friend NotInheritable Class BookingsDataImporter
         Return ""
     End Function
 
-    ''' <summary>Returns 1 = insert, 2 = update, 0 = no change.</summary>
-    Private Shared Function UpsertResitRow(
+    ''' <summary>Returns 1 = insert, 2 = update. Existing Energyspace flags are kept.</summary>
+    Private Shared Async Function UpsertResitRow(
+        bookings As IBookingService,
         studentId As String,
         firstName As String,
         lastName As String,
@@ -317,56 +334,41 @@ Friend NotInheritable Class BookingsDataImporter
         unitName As String,
         attemptNo As String,
         blockgroup As String,
-        resitDateStr As String) As Integer
+        resitDateStr As String) As Task(Of Integer)
 
-        Dim energyCreated = False
-        Dim energyBooked = False
+        Dim night As Date
+        If Not Date.TryParseExact(resitDateStr, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, night) Then
+            night = Date.Today
+        End If
+        Dim booking As New ResitBooking With {
+            .StudentId = studentId,
+            .FirstName = firstName,
+            .Surname = lastName,
+            .Email = email,
+            .TeacherName = teacher,
+            .TeacherEmail = teacherEmail,
+            .UnitCode = unit,
+            .UnitName = unitName,
+            .AttemptNo = attemptNo,
+            .BlockGroup = blockgroup,
+            .ResitDate = night,
+            .EnergyspaceCreated = False,
+            .EnergyspaceAssessmentBooked = False,
+            .QualificationCode = Await QualificationForNewBookingAsync(unit).ConfigureAwait(False)
+        }
+        Dim result = Await bookings.UpsertAsync(booking, preserveEnergyspaceFlags:=True).ConfigureAwait(False)
+        If result.Kind = UpsertKind.Inserted Then Return 1
+        Return 2
+    End Function
 
-        Using connection As New SqlConnection(SQLCon.connectionString)
-            connection.Open()
-            Dim checkSql = "SELECT COUNT(*) FROM ElectrotechnologyReports.dbo.ElectricalResit WHERE [Student ID] = @StudentID"
-            Using checkCmd As New SqlCommand(checkSql, connection)
-                checkCmd.Parameters.AddWithValue("@StudentID", studentId)
-                Dim count = CInt(checkCmd.ExecuteScalar())
-                If count > 0 Then
-                    Dim updateSql = "UPDATE ElectrotechnologyReports.dbo.ElectricalResit SET [Student Firstname] = @GivenName, [Student Surname] = @FamilyName, [Student Email] = @PersonalEmail, AllocatedTeacher = @AllocatedTeacher, AllocatedTeacherEmail = @AllocatedTeacherEmail, Unit = @Unit, [Unit Name] = @UnitName, AttemptNo = @AttemptNo, EnergyspaceCreated = @EnergySpaceCreated, EnergyspaceAssessmentBooked = @EnergySpaceAssessmentBooked, Blockgroup = @Blockgroup, [Resit date] = @ResitDate WHERE [Student ID] = @StudentID"
-                    Using u As New SqlCommand(updateSql, connection)
-                        u.Parameters.AddWithValue("@GivenName", firstName)
-                        u.Parameters.AddWithValue("@FamilyName", lastName)
-                        u.Parameters.AddWithValue("@PersonalEmail", email)
-                        u.Parameters.AddWithValue("@AllocatedTeacher", teacher)
-                        u.Parameters.AddWithValue("@AllocatedTeacherEmail", teacherEmail)
-                        u.Parameters.AddWithValue("@Unit", unit)
-                        u.Parameters.AddWithValue("@UnitName", unitName)
-                        u.Parameters.AddWithValue("@AttemptNo", attemptNo)
-                        u.Parameters.AddWithValue("@EnergySpaceCreated", energyCreated)
-                        u.Parameters.AddWithValue("@EnergySpaceAssessmentBooked", energyBooked)
-                        u.Parameters.AddWithValue("@Blockgroup", blockgroup)
-                        u.Parameters.AddWithValue("@ResitDate", resitDateStr)
-                        u.Parameters.AddWithValue("@StudentID", studentId)
-                        If u.ExecuteNonQuery() > 0 Then Return 2
-                    End Using
-                Else
-                    Dim insertSql = "INSERT INTO ElectrotechnologyReports.dbo.ElectricalResit ([Student ID], [Student Firstname], [Student Surname], [Student Email], AllocatedTeacher, AllocatedTeacherEmail, Unit, [Unit Name], AttemptNo, EnergyspaceCreated, EnergyspaceAssessmentBooked, Blockgroup, [Resit date]) VALUES (@StudentID, @GivenName, @FamilyName, @PersonalEmail, @AllocatedTeacher, @AllocatedTeacherEmail, @Unit, @UnitName, @AttemptNo, @EnergySpaceCreated, @EnergySpaceAssessmentBooked, @Blockgroup, @ResitDate)"
-                    Using ins As New SqlCommand(insertSql, connection)
-                        ins.Parameters.AddWithValue("@StudentID", studentId)
-                        ins.Parameters.AddWithValue("@GivenName", firstName)
-                        ins.Parameters.AddWithValue("@FamilyName", lastName)
-                        ins.Parameters.AddWithValue("@PersonalEmail", email)
-                        ins.Parameters.AddWithValue("@AllocatedTeacher", teacher)
-                        ins.Parameters.AddWithValue("@AllocatedTeacherEmail", teacherEmail)
-                        ins.Parameters.AddWithValue("@Unit", unit)
-                        ins.Parameters.AddWithValue("@UnitName", unitName)
-                        ins.Parameters.AddWithValue("@AttemptNo", attemptNo)
-                        ins.Parameters.AddWithValue("@EnergySpaceCreated", energyCreated)
-                        ins.Parameters.AddWithValue("@EnergySpaceAssessmentBooked", energyBooked)
-                        ins.Parameters.AddWithValue("@Blockgroup", blockgroup)
-                        ins.Parameters.AddWithValue("@ResitDate", resitDateStr)
-                        If ins.ExecuteNonQuery() > 0 Then Return 1
-                    End Using
-                End If
-            End Using
-        End Using
-        Return 0
+    Private Shared Async Function QualificationForNewBookingAsync(unitCode As String) As Task(Of String)
+        Try
+            If AppServices.Units Is Nothing OrElse AppServices.Qualifications Is Nothing Then Return ""
+            Dim units = Await AppServices.Units.GetAllAsync().ConfigureAwait(False)
+            Dim qualifications = Await AppServices.Qualifications.GetAllAsync().ConfigureAwait(False)
+            Return QualificationSelection.ForNewBooking(unitCode, units, qualifications)
+        Catch
+            Return ""
+        End Try
     End Function
 End Class

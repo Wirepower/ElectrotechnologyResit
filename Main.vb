@@ -1,29 +1,27 @@
-'Imports System.Data.SqlClient
-Imports System.Diagnostics
+'Imports System.Diagnostics
+Imports System.Globalization
 Imports System.IO
-Imports System.Net
-Imports Microsoft.Win32
-Imports Microsoft.Data.SqlClient
-Imports Microsoft.VisualBasic
 Imports System.Runtime.InteropServices
-Imports System.Drawing.Drawing2D
-Imports System.Drawing.Printing
+Imports ElectrotechnologyResit.Core
+Imports Microsoft.VisualBasic
 Imports OfficeOpenXml
 Imports OfficeOpenXml.Style
 
 
 
 Public Class Main
-    Dim dataTable As New DataTable()
-    Private connection As SqlConnection
-    Dim adapter As New SqlDataAdapter()
+    Private _ready As Boolean
+    Private _bindingGrid As Boolean
+    Private _loadingUnitLists As Boolean
+    Private _emailModeGuard As Boolean
     Sub New()
         ' Set the license context for EPPlus
         ExcelPackage.LicenseContext = LicenseContext.NonCommercial
 
         InitializeComponent()
         Label5.Text = AppVersion.DisplayText
-        Text = "Electrotechnology Resit — " & AppVersion.DisplayText
+        Text = "Electrotechnology Resit v" & AppVersion.VersionString
+        Label3.Text = "Created by Frank Offer, Contact me via email on Frank.Offer@vu.edu.au, " & AppVersion.DisplayText
     End Sub
     Private Sub Button7_Click(sender As Object, e As EventArgs) Handles Button7.Click
         Me.Close()
@@ -36,136 +34,172 @@ Public Class Main
     End Sub
 
     Private Sub Button2_Click(sender As Object, e As EventArgs) Handles Button2.Click
-        ' Create an instance of EditStudent form
         Dim editStudentForm As New EditStudent()
-
-        ' Set the MainFormDataGridView property of the EditStudent form to the DataGridView in the MainForm
         editStudentForm.MainFormDataGridView = DataGridView1
-
-        ' Show the EditStudent form
         editStudentForm.Show()
-        UpdateDataGridView()
     End Sub
 
-    Private Sub Main_Load(sender As Object, e As EventArgs) Handles MyBase.Load
-        'SQLCon.InitializeStatusLabel(statusLabel)
-        'connection = SQLCon.GetConnection()
-        'SQLCon.OpenConnection(connection)
-        Dim result As DialogResult = MessageBox.Show("Are you Connected to the VPN", "VPN Connection", MessageBoxButtons.YesNo)
-        Dim SQLConnection As DialogResult = MessageBox.Show("Are you having SQL connection issues", "SQL Connection", MessageBoxButtons.YesNo)
-        If SQLConnection = vbYes Then
+    Private Async Sub Main_Load(sender As Object, e As EventArgs) Handles MyBase.Load
+        DateTimePicker1.Value = MelbourneCalendar.Today()
+        If AppServices.IsSampleMode Then
+            Try
+                AppServices.ConfigureFromSettings(Function() CType(Me, IWin32Window))
+                ApplySampleDataCaption()
+                Me.Cursor = Cursors.WaitCursor
+                Await PurgeOldResitsAsync()
+                Await BackfillQualificationsAsync()
+                Await ReloadBookingsAsync(applyDateFilter:=True)
+                ApplyPullFromBookingsButtonVisibility()
+                _ready = True
+            Catch ex As Exception
+                MessageBox.Show("Error: " & ex.Message)
+            Finally
+                Me.Cursor = Cursors.Default
+            End Try
+            Return
+        End If
+
+        If AppServices.NeedsWizard() Then
+            Using wizard As New SetupWizard()
+                If wizard.ShowDialog(Me) <> DialogResult.OK Then
+                    Settings.Show()
+                    Me.Hide()
+                    Return
+                End If
+            End Using
+        End If
+
+        Try
+            AppServices.ConfigureFromSettings(Function() CType(Me, IWin32Window))
+        Catch ex As Exception
+            MessageBox.Show("Could not sign in or open the SharePoint site. " & ex.Message & vbCrLf & vbCrLf & "Open Settings?", "SharePoint sign-in", MessageBoxButtons.OK, MessageBoxIcon.Warning)
             Settings.Show()
             Me.Hide()
-            Exit Sub
-        End If
-        If result = vbYes Then
+            Return
+        End Try
 
-
-            ' Connection string to your SQL Server database
-            Dim connectionString As String = SQLCon.connectionString
-
-            ' SQL query to retrieve data from the table
-            Dim query As String = "SELECT * FROM ElectrotechnologyReports.dbo.ElectricalResit"
-
-            ' Create a SqlConnection
-            Using connection As New SqlConnection(connectionString)
-                Try
-                    ' Open the connection
-                    connection.Open()
-
-                    ' Create a SqlCommand to execute the query
-                    Using command As New SqlCommand(query, connection)
-                        ' Create a DataTable to hold the data
-                        Dim dataTable As New DataTable()
-
-                        ' Create a SqlDataAdapter to fill the DataTable
-                        Using adapter As New SqlDataAdapter(command)
-                            ' Fill the DataTable
-                            adapter.Fill(dataTable)
-                        End Using
-
-                        ' Bind the DataTable to the DataGridView
-                        DataGridView1.DataSource = dataTable
-                    End Using
-                Catch ex As System.Exception
-                    ' Handle any exceptions
-                    MessageBox.Show("Error: " & ex.Message)
-                End Try
-            End Using
-            ' Add event handlers to DataGridView events
-            AddHandler DataGridView1.RowsAdded, AddressOf DataGridView1_RowsAdded
-            AddHandler DataGridView1.RowsRemoved, AddressOf DataGridView1_RowsRemoved
-            AddHandler DataGridView1.CellValueChanged, AddressOf DataGridView1_CellValueChanged
-            UpdateListView(DateTimePicker1.Value)
-            UpdateListView1(DateTimePicker1.Value)
-            FilterData()
-            ApplyPullFromBookingsButtonVisibility()
+        Dim access = Await AppServices.CheckSiteAccessAsync()
+        If Not access.Ok Then
+            Dim openSettings = MessageBox.Show(access.Message & vbCrLf & vbCrLf & "Open Settings?", "SharePoint sign-in", MessageBoxButtons.YesNo, MessageBoxIcon.Warning)
+            If openSettings = DialogResult.Yes Then
+                Settings.Show()
+                Me.Hide()
+                Return
+            End If
         Else
-            MessageBox.Show("Closing Application, Connect to VPN and re-open Application", "Exiting Application")
-            Settings.Show()
-            'System.Environment.Exit(0)
+            Await OfferSchemaRepairAsync()
         End If
+
+        Try
+            Me.Cursor = Cursors.WaitCursor
+            Await QualificationCatalog.EnsureSeedAsync(AppServices.Qualifications, AppServices.Units)
+            Await PurgeOldResitsAsync()
+            Await BackfillQualificationsAsync()
+            Await ReloadBookingsAsync(applyDateFilter:=True)
+            ApplyPullFromBookingsButtonVisibility()
+            ApplySampleDataCaption()
+            _ready = True
+        Catch ex As Exception
+            MessageBox.Show("Error: " & ex.Message)
+        Finally
+            Me.Cursor = Cursors.Default
+        End Try
     End Sub
 
-    Public Sub UpdateDataGridView()
-        ' Construct the SQL query to fetch data from the ElectricalResit table
-        Dim query As String = "SELECT * FROM ElectrotechnologyReports.dbo.ElectricalResit"
-
-        ' Create a DataTable to store the retrieved data
-        Dim dataTable As New DataTable()
-
-        ' Create a SqlConnection
-        Using connection As New SqlConnection(SQLCon.connectionString)
-            Try
-                ' Open the connection
-                connection.Open()
-
-                ' Create a SqlDataAdapter to fetch the data
-                Using adapter As New SqlDataAdapter(query, connection)
-                    ' Fill the DataTable with data from the database
-                    adapter.Fill(dataTable)
-                End Using
-            Catch ex As System.Exception
-                ' Handle any exceptions
-                MessageBox.Show("Error: " & ex.Message)
-            End Try
-        End Using
-
-        ' Bind the DataTable to the DataGridView
-        DataGridView1.DataSource = dataTable
+    Public Sub ApplySampleDataCaption()
+        Text = "Electrotechnology Resit v" & AppVersion.VersionString
+        Label2.Text = Text
+        LabelSampleBadge.Visible = AppServices.IsSampleMode
     End Sub
+
+    Private Async Function BackfillQualificationsAsync() As Task
+        If AppServices.Bookings Is Nothing OrElse AppServices.Qualifications Is Nothing Then Return
+        Try
+            Dim qualifications = Await AppServices.Qualifications.GetAllAsync()
+            Dim code = QualificationCatalog.CodeForBlankBookings(qualifications)
+            Await AppServices.Bookings.BackfillQualificationsAsync(code)
+        Catch ex As Exception
+            MessageBox.Show(Me, "Could not fill blank qualifications. " & ex.Message, "Qualifications", MessageBoxButtons.OK, MessageBoxIcon.Warning)
+        End Try
+    End Function
+
+    Private Async Function PurgeOldResitsAsync() As Task
+        If AppServices.Bookings Is Nothing Then Return
+        Try
+            Dim removed = Await AppServices.Bookings.DeleteOnOrBeforeAsync(OldResitPurge.Cutoff(MelbourneCalendar.Today()))
+            If removed > 0 Then
+                Dim message = OldResitPurge.Message(removed)
+                Trace.WriteLine(message)
+                statusLabel.Text = message
+            End If
+        Catch ex As Exception
+            MessageBox.Show(Me, "Could not remove old resits. " & ex.Message, "Old resits", MessageBoxButtons.OK, MessageBoxIcon.Warning)
+        End Try
+    End Function
+
+    Private Async Function OfferSchemaRepairAsync() As Task
+        Try
+            Dim report = Await AppServices.Provisioner.VerifyAsync()
+            If report.IsSatisfied Then Return
+            Dim fix = MessageBox.Show(
+                "The SharePoint site is missing something this app needs:" & vbCrLf & vbCrLf & report.Summary() & vbCrLf & vbCrLf &
+                "Repair it now? Lists and columns that are already there are left as they are. Nothing is deleted.",
+                "SharePoint setup",
+                MessageBoxButtons.YesNo,
+                MessageBoxIcon.Warning)
+            If fix <> DialogResult.Yes Then Return
+            report = Await AppServices.Provisioner.EnsureAsync()
+            If Not report.IsSatisfied Then
+                MessageBox.Show("Some items are still missing:" & vbCrLf & vbCrLf & report.Summary(), "SharePoint setup", MessageBoxButtons.OK, MessageBoxIcon.Warning)
+            End If
+        Catch ex As Exception
+            MessageBox.Show("Could not check the SharePoint lists. " & ex.Message, "SharePoint setup", MessageBoxButtons.OK, MessageBoxIcon.Warning)
+        End Try
+    End Function
+
+    ''' <summary>Reloads the grid for the selected night, or every date when Show All is in effect, and reloads both Energyspace lists.</summary>
+    Public Async Function UpdateDataGridView() As Task
+        Await ReloadBookingsAsync(_keepDateFilter)
+    End Function
+
+    Private _keepDateFilter As Boolean = True
+
+    Private Async Function ReloadBookingsAsync(applyDateFilter As Boolean) As Task
+        _bindingGrid = True
+        Try
+            Dim rows = Await AppServices.Bookings.GetAllAsync()
+            DataGridView1.DataSource = BookingTable.FromBookings(rows)
+            DataGridView1.AllowUserToAddRows = False
+            ApplyGridColumnLayout()
+        Catch ex As Exception
+            MessageBox.Show("Error: " & ex.Message)
+        Finally
+            _bindingGrid = False
+        End Try
+        If applyDateFilter Then FilterData()
+        UpdateStudentCount()
+        Await RefreshUnitListsAsync()
+    End Function
 
     Private Sub CheckBox2_CheckedChanged(sender As Object, e As EventArgs) Handles CheckBox2.CheckedChanged
-        If Not CheckBox2.Checked Then
-            CheckBox1.Checked = True
-        End If
+        If _emailModeGuard Then Return
+        _emailModeGuard = True
+        Dim mode = EmailSendMode.AfterSendChanged(CheckBox2.Checked)
+        CheckBox1.Checked = mode.DisplayManually
+        CheckBox2.Checked = mode.SendImmediately
+        _emailModeGuard = False
     End Sub
 
     Private Sub CheckBox1_CheckedChanged(sender As Object, e As EventArgs) Handles CheckBox1.CheckedChanged
-        If Not CheckBox1.Checked Then
-            CheckBox2.Checked = True
-        End If
+        If _emailModeGuard Then Return
+        _emailModeGuard = True
+        Dim mode = EmailSendMode.AfterDisplayChanged(CheckBox1.Checked)
+        CheckBox1.Checked = mode.DisplayManually
+        CheckBox2.Checked = mode.SendImmediately
+        _emailModeGuard = False
     End Sub
-    Private Sub DeleteRecordFromDatabase(studentID As String)
-        ' Assuming you have a SqlConnection object named 'connection' already defined
-        Using connection As New SqlConnection(SQLCon.connectionString)
-            ' Open the connection
-            connection.Open()
 
-            ' Define the SQL command to delete the record
-            Dim sql As String = "DELETE FROM ElectrotechnologyReports.dbo.ElectricalResit WHERE [Student ID] = @StudentID"
-
-            ' Create a SqlCommand object
-            Using command As New SqlCommand(sql, connection)
-                ' Add parameter for the student ID
-                command.Parameters.AddWithValue("@StudentID", studentID)
-
-                ' Execute the command
-                command.ExecuteNonQuery()
-            End Using
-        End Using
-    End Sub
-    Private Sub Button3_Click(sender As Object, e As EventArgs) Handles Button3.Click
+    Private Async Sub Button3_Click(sender As Object, e As EventArgs) Handles Button3.Click
         If DataGridView1.SelectedRows.Count = 0 Then
             MessageBox.Show("Please select a row to delete.")
             Return
@@ -176,150 +210,179 @@ Public Class Main
             Return
         End If
         Try
-            DeleteRecordFromDatabase(studentID)
-            DataGridView1.Rows.Remove(selectedRow)
+            Await AppServices.Bookings.DeleteByStudentIdAsync(studentID)
+            Await UpdateDataGridView()
         Catch ex As Exception
-            MessageBox.Show("Could not delete from the database: " & ex.Message, "Delete failed", MessageBoxButtons.OK, MessageBoxIcon.Error)
+            MessageBox.Show("Could not delete from SharePoint: " & ex.Message, "Delete failed", MessageBoxButtons.OK, MessageBoxIcon.Error)
         End Try
     End Sub
 
-    Private Sub Button4_Click(sender As Object, e As EventArgs) Handles Button4.Click
+    Private Async Sub Button4_Click(sender As Object, e As EventArgs) Handles Button4.Click
         Dim selectedDate As Date = DateTimePicker1.Value.Date
         If MessageBox.Show("Delete ALL resit bookings for " & selectedDate.ToString("D") & "? This cannot be undone.", "Confirm delete", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) <> DialogResult.Yes Then
             Return
         End If
-        DeleteRecordsFromDatabase(selectedDate)
+        Try
+            Await AppServices.Bookings.DeleteByDateAsync(selectedDate)
+        Catch ex As Exception
+            MessageBox.Show("Could not delete from SharePoint: " & ex.Message, "Delete failed", MessageBoxButtons.OK, MessageBoxIcon.Error)
+            Return
+        End Try
         MessageBox.Show("All data for " & selectedDate.ToString("D") & " has been deleted.", "Done", MessageBoxButtons.OK, MessageBoxIcon.Information)
-        UpdateDataGridView()
+        Await UpdateDataGridView()
     End Sub
-    Private Sub DeleteRecordsFromDatabase(selectedDate As Date)
-        Using connection As New SqlConnection(SQLCon.connectionString)
-            connection.Open()
 
-            Dim sql As String = "DELETE FROM ElectrotechnologyReports.dbo.ElectricalResit WHERE CAST([Resit date] AS date) = CAST(@SelectedDate AS date)"
+    Private Async Sub Button5_Click(sender As Object, e As EventArgs) Handles Button5.Click
+        Dim displayMail = CheckBox1.Checked
+        Dim sendMail = CheckBox2.Checked
+        If AppServices.IsSampleMode Then
+            Dim proceed = MessageBox.Show(Me,
+                "SAMPLE DATA. The teacher addresses are fictional (@example.com)." & vbCrLf & vbCrLf &
+                "Outlook will display each message so you can check it. Nothing will be sent.",
+                "Sample data",
+                MessageBoxButtons.OKCancel,
+                MessageBoxIcon.Information)
+            If proceed <> DialogResult.OK Then Return
+            displayMail = True
+            sendMail = False
+            _emailModeGuard = True
+            CheckBox1.Checked = True
+            CheckBox2.Checked = False
+            _emailModeGuard = False
+        End If
 
-            Using command As New SqlCommand(sql, connection)
-                command.Parameters.Add("@SelectedDate", SqlDbType.Date).Value = selectedDate
-                command.ExecuteNonQuery()
-            End Using
-        End Using
-    End Sub
-    Public Function RetrieveImageDataFromDatabase() As Byte()
-        Dim imageData As Byte() = Nothing
-
-        ' Your SQL query to retrieve the image data
-        Dim query As String = "SELECT TOP 1 [Email Signature Image] FROM ElectrotechnologyReports.dbo.EmailSettings"
-
-
-        ' Define your SQL connection string
-        Dim connectionString As String = SQLCon.connectionString
-
-        ' Create a SqlConnection object
-        Using connection As New SqlConnection(connectionString)
-            ' Open the connection
-            connection.Open()
-
-            ' Create a SqlCommand object with your query and connection
-            Using command As New SqlCommand(query, connection)
-                Dim scalar = command.ExecuteScalar()
-                If scalar IsNot Nothing AndAlso Not Convert.IsDBNull(scalar) Then
-                    imageData = DirectCast(scalar, Byte())
-                End If
-            End Using
-        End Using
-
-        Return imageData
-    End Function
-    Private Sub Button5_Click(sender As Object, e As EventArgs) Handles Button5.Click
-        Dim selectedDate As String = DateTimePicker1.Value.ToString("yyyy-MM-dd")
-        Dim imageData As Byte() = RetrieveImageDataFromDatabase()
-        Dim query As String = "SELECT * FROM ElectrotechnologyReports.dbo.ElectricalResit WHERE CONVERT(date, [Resit date]) = @SelectedDate"
-
-        Dim outlookApp As Object = OutlookInterop.TryCreateOutlookApplication()
-        If outlookApp Is Nothing Then
-            MessageBox.Show("Microsoft Outlook could not be started. Install Outlook (desktop) and try again.", "Outlook required", MessageBoxButtons.OK, MessageBoxIcon.Warning)
+        OfficeStep("Email: loading bookings")
+        Dim bookings As IReadOnlyList(Of ResitBooking)
+        Try
+            bookings = Await AppServices.Bookings.GetByDateAsync(DateTimePicker1.Value.Date)
+        Catch ex As Exception
+            MessageBox.Show(Me, ex.Message, "Email teachers", MessageBoxButtons.OK, MessageBoxIcon.Error)
+            Return
+        End Try
+        If bookings Is Nothing OrElse bookings.Count = 0 Then
+            MessageBox.Show(Me, "There are no students for this resit night.", "Email teachers", MessageBoxButtons.OK, MessageBoxIcon.Information)
             Return
         End If
 
+        Dim imageData As Byte() = Nothing
+        OfficeStep("Email: loading signature")
         Try
-            Using connection As New SqlConnection(SQLCon.connectionString)
-                Using command As New SqlCommand(query, connection)
-                    command.Parameters.AddWithValue("@SelectedDate", selectedDate)
-
-                    connection.Open()
-
-                    Using reader As SqlDataReader = command.ExecuteReader()
-                        While reader.Read()
-                            Dim emailAddress As String = reader("Student Email").ToString()
-                            Dim Blockgroup As String = reader("Blockgroup").ToString()
-                            Dim resitDate As Date = CType(reader("Resit date"), Date)
-                            Dim StudentFirstname As String = reader("Student Firstname").ToString()
-                            Dim StudentSurname As String = reader("Student Surname").ToString()
-                            Dim Student_ID As String = reader("Student ID").ToString()
-                            Dim Unit As String = reader("Unit").ToString()
-                            Dim UnitName As String = reader("Unit Name").ToString()
-                            Dim AllocatedTeacher As String = reader("AllocatedTeacher").ToString()
-                            Dim AllocatedTeacherEmail As String = reader("AllocatedTeacherEmail").ToString()
-                            Dim formattedResitDate As String = resitDate.ToString("dd")
-
-                            Select Case resitDate.Day
-                                Case 1, 21, 31
-                                    formattedResitDate &= "st"
-                                Case 2, 22
-                                    formattedResitDate &= "nd"
-                                Case 3, 23
-                                    formattedResitDate &= "rd"
-                                Case Else
-                                    formattedResitDate &= "th"
-                            End Select
-
-                            formattedResitDate &= " " & resitDate.ToString("MMMM, yyyy")
-
-                            Dim body As String = "Dear " & AllocatedTeacher & "," & vbCrLf & vbCrLf & "<br>" &
-                            "This is a reminder about an upcoming resit on " & formattedResitDate & ".<br>" &
-                            vbCrLf & vbCrLf &
-                            "Please see below for your applicable student:" & vbCrLf & vbCrLf & "<br><br>" &
-                            "Student ID: " & Student_ID & vbCrLf & "<br>" &
-                            "Student Firstname: " & StudentFirstname & vbCrLf & "<br>" &
-                            "Student Surname: " & StudentSurname & vbCrLf & "<br>" &
-                            "Blockgroup: " & Blockgroup & vbCrLf & "<br>" &
-                            "Allocated Teacher: " & AllocatedTeacher & vbCrLf & "<br>" &
-                            "Unit: " & Unit & "- " & UnitName & vbCrLf & vbCrLf & "<br><br>" &
-                            "Please monitor this student and update their results upon resit completion,<br><br>" & vbCrLf & vbCrLf &
-                            "Thank you," & vbCrLf & "<br>" &
-                            "Electrotechnology.Admin Team"
-
-                            Dim imgHtml As String = ""
-                            If imageData IsNot Nothing AndAlso imageData.Length > 0 Then
-                                imgHtml = "<br><img src='data:image/jpeg;base64," & Convert.ToBase64String(imageData) & "' width='90%'>"
-                            End If
-                            Dim html As String = "<html><body><font color='black'>" & body & "</font></body>" & imgHtml & "</html>"
-                            Dim subject As String = "One of your students has been booked into a resit night on " & formattedResitDate
-                            OutlookInterop.CreateDisplayOrSendMail(outlookApp, AllocatedTeacherEmail, subject, html, "Electrotechnology.admin@vu.edu.au", CheckBox1.Checked, CheckBox2.Checked)
-                        End While
-                    End Using
-                End Using
-            End Using
-        Finally
-            Marshal.FinalReleaseComObject(outlookApp)
+            imageData = Await AppServices.Signature.GetCurrentImageAsync()
+        Catch ex As Exception
+            OfficeStep("Email: signature unavailable")
+            imageData = Nothing
         End Try
+
+        Dim messages As New List(Of (Address As String, Subject As String, Html As String))
+        For Each booking In bookings
+            Dim formattedResitDate = EnglishOrdinal.FormatResitNight(booking.ResitDate)
+            Dim body As String = "Dear " & booking.TeacherName & "," & vbCrLf & vbCrLf & "<br>" &
+                "This is a reminder about an upcoming resit on " & formattedResitDate & ".<br>" &
+                vbCrLf & vbCrLf &
+                "Please see below for your applicable student:" & vbCrLf & vbCrLf & "<br><br>" &
+                "Student ID: " & booking.StudentId & vbCrLf & "<br>" &
+                "Student Firstname: " & booking.FirstName & vbCrLf & "<br>" &
+                "Student Surname: " & booking.Surname & vbCrLf & "<br>" &
+                "Blockgroup: " & booking.BlockGroup & vbCrLf & "<br>" &
+                "Allocated Teacher: " & booking.TeacherName & vbCrLf & "<br>" &
+                "Unit: " & booking.UnitCode & "- " & booking.UnitName & vbCrLf & vbCrLf & "<br><br>" &
+                "Please monitor this student and update their results upon resit completion,<br><br>" & vbCrLf & vbCrLf &
+                "Thank you," & vbCrLf & "<br>" &
+                "Electrotechnology.Admin Team"
+            Dim imgHtml = ""
+            If imageData IsNot Nothing AndAlso imageData.Length > 0 Then
+                imgHtml = "<br><img src='data:image/jpeg;base64," & Convert.ToBase64String(imageData) & "' width='90%'>"
+            End If
+            Dim html = "<html><body><font color='black'>" & body & "</font></body>" & imgHtml & "</html>"
+            Dim subject = "One of your students has been booked into a resit night on " & formattedResitDate
+            messages.Add((booking.TeacherEmail, subject, html))
+        Next
+
+        Button5.Enabled = False
+        UseWaitCursor = True
+        Dim previousStatus = statusLabel.Text
+        statusLabel.Text = "Waiting for Outlook..."
+        Dim session As OfficeSession = Nothing
+        Using dialog As New OfficeWaitDialog("Waiting for Outlook...")
+            dialog.Show(Me)
+            Try
+                session = Await OfficeSession.TryAttachAsync("Outlook.Application", TimeSpan.FromSeconds(40), dialog.Token, AddressOf OfficeStep)
+                If session Is Nothing Then
+                    If Not dialog.Token.IsCancellationRequested Then
+                        MessageBox.Show(Me, "Outlook didn't start. Open Outlook, then try again.", "Outlook", MessageBoxButtons.OK, MessageBoxIcon.Warning)
+                    End If
+                Else
+                Dim index = 0
+                For Each message In messages
+                    If dialog.Token.IsCancellationRequested Then Exit For
+                    index += 1
+                    statusLabel.Text = "Showing message " & index.ToString() & " of " & messages.Count.ToString()
+                    OfficeStep("Email: message " & index.ToString() & " of " & messages.Count.ToString())
+                    Dim address = message.Address
+                    Dim subject = message.Subject
+                    Dim html = message.Html
+                    Dim show = displayMail
+                    Dim send = sendMail
+                    Dim result = Await session.InvokeAsync(Sub() OutlookInterop.CreateDisplayOrSendMail(session.Application, address, subject, html, "Electrotechnology.admin@vu.edu.au", show, send), TimeSpan.FromSeconds(45), dialog.Token)
+                    If result.Kind = OfficeWaitKind.TimedOut Then
+                        MessageBox.Show(Me, "Outlook stopped responding. Open Outlook, then try again.", "Outlook", MessageBoxButtons.OK, MessageBoxIcon.Warning)
+                        Exit For
+                    End If
+                    If result.Problem IsNot Nothing Then
+                        MessageBox.Show(Me, result.Problem.Message, "Email teachers", MessageBoxButtons.OK, MessageBoxIcon.Error)
+                        Exit For
+                    End If
+                Next
+                OfficeStep("Email: finished")
+                End If
+            Catch ex As Exception
+                MessageBox.Show(Me, ex.Message, "Email teachers", MessageBoxButtons.OK, MessageBoxIcon.Error)
+            Finally
+                dialog.Close()
+                Button5.Enabled = True
+                UseWaitCursor = False
+                statusLabel.Text = previousStatus
+            End Try
+        End Using
+        If session IsNot Nothing Then Await session.ReleaseAsync()
     End Sub
 
-    Private Sub DateTimePicker1_ValueChanged(sender As Object, e As EventArgs) Handles DateTimePicker1.ValueChanged
-        FilterData()
-        UpdateListView(DateTimePicker1.Value)
-        UpdateListView1(DateTimePicker1.Value)
+    Private Shared Sub OfficeStep(stepName As String)
+        OfficeStepLog.Write(IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "ElectrotechnologyResit"), stepName)
+    End Sub
+
+    Private Async Sub DateTimePicker1_ValueChanged(sender As Object, e As EventArgs) Handles DateTimePicker1.ValueChanged
+        If Not _ready Then Return
+        _keepDateFilter = True
+        Await ReloadBookingsAsync(applyDateFilter:=True)
     End Sub
     Public Sub FilterData()
-        Dim selectedDate As DateTime = DateTimePicker1.Value
+        Dim selectedDate As Date = DateTimePicker1.Value.Date
         Dim dataTable = TryCast(DataGridView1.DataSource, DataTable)
         If dataTable Is Nothing Then Return
-        dataTable.DefaultView.RowFilter = "[Resit date] = '" & selectedDate.ToString("yyyy-MM-dd") & "'"
+        Dim startText = selectedDate.ToString("MM/dd/yyyy", CultureInfo.InvariantCulture)
+        Dim endText = selectedDate.AddDays(1).ToString("MM/dd/yyyy", CultureInfo.InvariantCulture)
+        dataTable.DefaultView.RowFilter = "[Resit date] >= #" & startText & "# AND [Resit date] < #" & endText & "#"
+        UpdateStudentCount()
     End Sub
 
-    Private Sub Button8_Click(sender As Object, e As EventArgs) Handles Button8.Click
-        ' Show all data in the DataGridView
-        UpdateDataGridView()
+    Private Sub UpdateStudentCount()
+        Dim count = 0
+        Dim table = TryCast(DataGridView1.DataSource, DataTable)
+        If table IsNot Nothing Then
+            If _keepDateFilter Then
+                count = table.DefaultView.Count
+                LabelStudentCount.Text = count.ToString() & " students for " & DateTimePicker1.Value.ToString("dd/MM/yyyy")
+            Else
+                count = table.Rows.Count
+                LabelStudentCount.Text = count.ToString() & " students (all dates)"
+            End If
+        End If
+    End Sub
+
+    Private Async Sub Button8_Click(sender As Object, e As EventArgs) Handles Button8.Click
+        _keepDateFilter = False
+        Await ReloadBookingsAsync(applyDateFilter:=False)
     End Sub
     Private Sub ExportToExcel(dataGridView As DataGridView, exportDate As DateTime, columnsToHide As List(Of String), columnWidths As Dictionary(Of String, Integer))
         Dim dateString As String = exportDate.ToString("dd-MM-yyyy")
@@ -341,7 +404,7 @@ Public Class Main
                 Next
 
                 ' Define the desired order of column headers
-                Dim desiredOrderHeaders As String() = {"Student ID", "Student Firstname", "Student Surname", "Student Email", "Unit", "Unit Name", "Blockgroup", "AllocatedTeacher", "AllocatedTeacherEmail", "AttemptNo", "Resit date", "EnergyspaceCreated", "EnergyspaceAssessmentBooked", "status", "Attendance", "Mark", "Pass/Fail"} ' Adjust with your desired order
+                Dim desiredOrderHeaders As String() = {"Student ID", "Student Firstname", "Surname", "Email", "Unit", "QualificationCode", "Unit Name", "Blockgroup", "AllocatedTeacher", "AllocatedTeacher email", "AttemptNo", "Resit date", "EnergyspaceClassCreated", "EnergyspaceAssessmentBooked", "status", "Attendance", "Mark", "Pass/Fail"}
 
                 ' Sort the mapping based on the desired order of column headers
                 Dim sortedMap = headerIndexMap.OrderBy(Function(x) Array.IndexOf(desiredOrderHeaders, x.Key))
@@ -500,17 +563,17 @@ Public Class Main
     End Sub
 
     Private Sub Button9_Click(sender As Object, e As EventArgs) Handles Button9.Click
-        Dim columnsToHide As New List(Of String) From {"status", "EnergyspaceCreated", "EnergyspaceAssessmentBooked"}
+        Dim columnsToHide As New List(Of String) From {"status", "EnergyspaceClassCreated", "EnergyspaceAssessmentBooked"}
         Dim columnWidths As New Dictionary(Of String, Integer) From {
             {"Student ID", 16},
             {"Student Firstname", 22},
-            {"Student Surname", 22},
-            {"Student Email", 30},
+            {"Surname", 22},
+            {"Email", 30},
             {"Unit", 26},
             {"Unit Name", 75},
             {"Blockgroup", 28},
             {"AllocatedTeacher", 20},
-            {"AllocatedTeacherEmail", 30},
+            {"AllocatedTeacher email", 30},
             {"AttemptNo", 14},
             {"Resit date", 26},
             {"Attendance", 14},
@@ -524,165 +587,173 @@ Public Class Main
         ExportToExcel(DataGridView1, DateTimePicker1.Value, columnsToHide, columnWidths)
     End Sub
 
-    Private Sub Button10_Click(sender As Object, e As EventArgs) Handles Button10.Click
-        If MessageBox.Show("Delete all resit records older than 14 days? This cannot be undone.", "Confirm delete", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) <> DialogResult.Yes Then
-            Return
-        End If
-        Dim query As String = "DELETE FROM ElectrotechnologyReports.dbo.ElectricalResit WHERE [Resit date] <= DATEADD(day, -14, GETDATE())"
-
-        Using connection As New SqlConnection(SQLCon.connectionString)
-            Using command As New SqlCommand(query, connection)
-                connection.Open()
-                command.ExecuteNonQuery()
-            End Using
-        End Using
-        UpdateDataGridView()
-        MessageBox.Show("All resit records older than 14 days have been deleted.", "Done", MessageBoxButtons.OK, MessageBoxIcon.Information)
-    End Sub
-
-    Private Sub Button6_Click(sender As Object, e As EventArgs) Handles Button6.Click
-        UpdateDataGridView()
-        UpdateListView(DateTimePicker1.Value)
-        UpdateListView1(DateTimePicker1.Value)
-    End Sub
-    Private Sub UpdateListView(selectedDate As Date)
-        ' Clear the ListView before updating
-        ListView1.Items.Clear()
-
-        ' Format the selectedDate to match the 'yyyy-MM-dd' format
-        Dim formattedDate As String = selectedDate.ToString("yyyy-MM-dd")
-
-        ' Connection string for your SQL Server database
-        Dim connectionString As String = SQLCon.connectionString
-
-        ' SQL query to retrieve unique values from the "Unit" column
-        Dim query As String = "SELECT DISTINCT Unit FROM ElectrotechnologyReports.dbo.ElectricalResit WHERE [Resit date] = @SelectedDate"
-
+    Private Async Function RefreshUnitListsAsync() As Task
+        If AppServices.Bookings Is Nothing Then Return
+        Dim flags As IReadOnlyList(Of UnitNightFlags)
         Try
-            ' Open a connection to the database
-            Using connection As New SqlConnection(connectionString)
-                connection.Open()
+            flags = Await AppServices.Bookings.GetUnitFlagsAsync(DateTimePicker1.Value.Date)
+        Catch ex As Exception
+            MessageBox.Show("Error retrieving data from SharePoint: " & ex.Message)
+            Return
+        End Try
+        Dim titles As New Dictionary(Of String, String)(StringComparer.OrdinalIgnoreCase)
+        If AppServices.Units IsNot Nothing Then
+            For Each unit In Await AppServices.Units.GetAllAsync()
+                Dim code = If(unit.UnitCode, "").Trim()
+                If code.Length > 0 AndAlso Not titles.ContainsKey(code) Then titles(code) = If(unit.UnitTitle, "")
+            Next
+        End If
+        _loadingUnitLists = True
+        Try
+            ListView1.Items.Clear()
+            ListView2.Items.Clear()
+            For Each unit In flags
+                Dim name = If(titles.ContainsKey(unit.UnitCode), titles(unit.UnitCode), "")
+                Dim created As New ListViewItem(unit.UnitCode)
+                created.SubItems.Add(name)
+                Dim booked As New ListViewItem(unit.UnitCode)
+                booked.SubItems.Add(name)
+                ListView1.Items.Add(created)
+                ListView2.Items.Add(booked)
+                created.Checked = unit.ClassCreated
+                booked.Checked = unit.AssessmentBooked
+            Next
+        Finally
+            _loadingUnitLists = False
+        End Try
+        UpdateTickCount(ListView1, LabelClassCount)
+        UpdateTickCount(ListView2, LabelBookedCount)
+        FitEnergyspaceLists()
+        UpdateResitExportButtonsVisibility()
+    End Function
 
-                ' Execute the SQL query
-                Using command As New SqlCommand(query, connection)
-                    ' Add parameter for the formatted date
-                    command.Parameters.AddWithValue("@SelectedDate", formattedDate)
-
-                    ' Execute the query and read the results
-                    Using reader As SqlDataReader = command.ExecuteReader()
-                        ' Iterate through the result set and add unique values to the ListView
-                        While reader.Read()
-                            ' Add items to the ListView without checking the checkboxes
-                            ListView1.Items.Add(reader("Unit").ToString())
-                        End While
-                    End Using
-                End Using
-            End Using
-        Catch ex As System.Exception
-            ' Handle any errors that occur during database access
-            MessageBox.Show("Error retrieving data from the database: " & ex.Message)
+    ''' <summary>Sizes both unit lists to their rows, with no scrollbar. The panels share the taller height and the grid keeps the rest.</summary>
+    Private Sub FitEnergyspaceLists()
+        If _mainLayout Is Nothing OrElse _fittingLists Then Return
+        _fittingLists = True
+        Try
+            PrepareUnitList(ListView1)
+            PrepareUnitList(ListView2)
+            Dim leftHeight = MeasuredListHeight(ListView1)
+            Dim rightHeight = MeasuredListHeight(ListView2)
+            Dim sharedHeight = Math.Max(leftHeight, rightHeight)
+            If sharedHeight < 28 Then sharedHeight = 28
+            Const chrome As Integer = 22 + 20 + 12
+            Dim panelHeight = sharedHeight + chrome
+            If panelHeight = _energyspaceHeight AndAlso ListView1.Height = leftHeight AndAlso ListView2.Height = rightHeight Then Return
+            _energyspaceHeight = panelHeight
+            ListView1.Height = leftHeight
+            ListView2.Height = rightHeight
+            _mainLayout.RowStyles(3) = New RowStyle(SizeType.Absolute, panelHeight)
+        Finally
+            _fittingLists = False
         End Try
     End Sub
 
-    Private Sub DataGridView1_CellValueChanged(sender As Object, e As DataGridViewCellEventArgs) Handles DataGridView1.CellValueChanged
-        UpdateListView(DateTimePicker1.Value)
-        UpdateListView1(DateTimePicker1.Value)
-    End Sub
+    Private _fittingLists As Boolean
+    Private _energyspaceHeight As Integer = -1
 
-    Private Sub DataGridView1_RowsAdded(sender As Object, e As DataGridViewRowsAddedEventArgs) Handles DataGridView1.RowsAdded
-        UpdateListView(DateTimePicker1.Value)
-        UpdateListView1(DateTimePicker1.Value)
-    End Sub
-
-    Private Sub DataGridView1_RowsRemoved(sender As Object, e As DataGridViewRowsRemovedEventArgs) Handles DataGridView1.RowsRemoved
-        UpdateListView(DateTimePicker1.Value)
-        UpdateListView1(DateTimePicker1.Value)
-    End Sub
-    Private Sub ListView1_ItemChecked(sender As Object, e As ItemCheckedEventArgs) Handles ListView1.ItemChecked
-        ' Get the checked item in the ListView
-        Dim checkedItem = e.Item
-
-        ' Get the text of the checked item
-        Dim unit = checkedItem.Text
-
-        ' Get the date from the DatePicker
-        Dim resitDate = DateTimePicker1.Value.Date
-
-        ' Check if the item is checked
-        If checkedItem.Checked Then
-            ' Update SQL table
-            UpdateDataInSQL(resitDate, unit)
-        End If
-        UpdateResitExportButtonsVisibility()
-        'UpdateDataGridView()
-    End Sub
-
-    Private Sub UpdateDataInSQL(resitDate As Date, unit As String)
-        ' Connection string
-        Dim connectionString As String = SQLCon.connectionString
-
-        ' SQL query
-        Dim query As String = "UPDATE ElectrotechnologyReports.dbo.ElectricalResit SET [EnergyspaceCreated] = @Checked WHERE [Resit date] = @ResitDate AND Unit = @Unit"
-
+    Private Shared Sub PrepareUnitList(list As ListView)
+        Dim twoColumns = EnergyspacePanelLayout.ColumnCount(list.Items.Count) = 2
+        list.BeginUpdate()
         Try
-            Using connection As New SqlConnection(connectionString)
-                ' Open the connection
-                connection.Open()
+            list.Scrollable = False
+            If twoColumns Then
+                list.View = View.Tile
+                list.HeaderStyle = ColumnHeaderStyle.None
+                Dim tileWidth = Math.Max(220, (Math.Max(list.Width, 440) \ 2) - 8)
+                list.TileSize = New Size(tileWidth, 32)
+            Else
+                list.View = View.Details
+                list.HeaderStyle = ColumnHeaderStyle.Nonclickable
+                If list.Columns.Count > 0 Then list.Columns(0).Width = 120
+                If list.Columns.Count > 1 Then list.Columns(1).Width = -2
+            End If
+        Finally
+            list.EndUpdate()
+        End Try
+    End Sub
 
-                ' Create command
-                Using command As New SqlCommand(query, connection)
-                    ' Add parameters
-                    command.Parameters.AddWithValue("@ResitDate", resitDate)
-                    command.Parameters.AddWithValue("@Unit", unit)
-                    ' You should replace "YourColumnName" with the name of the column you want to update in your SQL table
-                    command.Parameters.AddWithValue("@Checked", True) ' Or whatever value you want to set when the checkbox is checked
+    Private Shared Function MeasuredListHeight(list As ListView) As Integer
+        If Not list.IsHandleCreated Then list.CreateControl()
+        Dim rowHeight = If(list.View = View.Tile, Math.Max(list.TileSize.Height, 24), 22)
+        Dim header = 0
+        If list.Items.Count > 0 AndAlso list.View = View.Details Then
+            Dim top = list.GetItemRect(0).Top
+            header = If(top > 0, top, 24)
+            Dim measured = list.GetItemRect(0).Height
+            If measured > 0 Then rowHeight = measured
+        ElseIf list.View = View.Details Then
+            header = 24
+        End If
+        Dim height = EnergyspacePanelLayout.ListHeight(list.Items.Count, rowHeight, header)
+        If height < 1 Then height = header
+        Return height + 2
+    End Function
 
-                    ' Execute the query
-                    command.ExecuteNonQuery()
-                End Using
-            End Using
-        Catch ex As System.Exception
+    Private Sub Main_Resize(sender As Object, e As EventArgs) Handles MyBase.Resize
+        If Not _ready Then Return
+        FitEnergyspaceLists()
+    End Sub
+
+    Private Sub ApplyGridColumnLayout()
+        If DataGridView1.Columns.Count = 0 Then Return
+        DataGridView1.AllowUserToAddRows = False
+        DataGridView1.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill
+        For Each column As DataGridViewColumn In DataGridView1.Columns
+            Dim header = column.HeaderText
+            Dim minimum = 64
+            Dim weight = 70
+            Select Case header
+                Case "Unit"
+                    minimum = 120
+                    weight = 90
+                Case "Unit Name"
+                    minimum = 260
+                    weight = 180
+                Case "Email", "AllocatedTeacher email"
+                    minimum = 200
+                    weight = 150
+                Case "QualificationCode", "AllocatedTeacher", "Student Firstname", "Surname"
+                    minimum = 110
+                    weight = 90
+                Case "Student ID", "Blockgroup", "Resit date"
+                    minimum = 90
+                    weight = 70
+            End Select
+            column.MinimumWidth = minimum
+            column.FillWeight = weight
+        Next
+    End Sub
+
+    Private Sub DataGridView1_CellToolTipTextNeeded(sender As Object, e As DataGridViewCellToolTipTextNeededEventArgs) Handles DataGridView1.CellToolTipTextNeeded
+        If e.RowIndex < 0 OrElse e.ColumnIndex < 0 Then Return
+        Dim value = DataGridView1.Rows(e.RowIndex).Cells(e.ColumnIndex).Value
+        If value Is Nothing OrElse TypeOf value Is DBNull Then Return
+        Dim text = Convert.ToString(value)
+        If text.Length > 0 Then e.ToolTipText = text
+    End Sub
+
+    Private Shared Sub UpdateTickCount(list As ListView, label As Label)
+        Dim ticked = 0
+        For Each item As ListViewItem In list.Items
+            If item.Checked Then ticked += 1
+        Next
+        label.Text = ticked.ToString() & " of " & list.Items.Count.ToString() & " units ticked"
+    End Sub
+
+    Private Async Sub ListView1_ItemChecked(sender As Object, e As ItemCheckedEventArgs) Handles ListView1.ItemChecked
+        If _loadingUnitLists OrElse _bindingGrid Then Return
+        Dim unit = e.Item.Text
+        Dim night = DateTimePicker1.Value.Date
+        Try
+            Await AppServices.Bookings.SetEnergyspaceCreatedAsync(night, unit, e.Item.Checked)
+            UpdateGridFlag(unit, "EnergyspaceClassCreated", e.Item.Checked)
+        Catch ex As Exception
+            RevertCheck(e.Item)
             MessageBox.Show("An error occurred: " & ex.Message)
         End Try
-    End Sub
-    '---------------------------------------
-    Private Sub UpdateListView1(selectedDate As Date)
-        ' Clear the ListView before updating
-        ListView2.Items.Clear()
-
-        ' Format the selectedDate to match the 'yyyy-MM-dd' format
-        Dim formattedDate As String = selectedDate.ToString("yyyy-MM-dd")
-
-        ' Connection string for your SQL Server database
-        Dim connectionString As String = SQLCon.connectionString
-
-        ' SQL query to retrieve unique values from the "Unit" column
-        Dim query As String = "SELECT DISTINCT Unit FROM ElectrotechnologyReports.dbo.ElectricalResit WHERE [Resit date] = @SelectedDate"
-
-        Try
-            ' Open a connection to the database
-            Using connection As New SqlConnection(connectionString)
-                connection.Open()
-
-                ' Execute the SQL query
-                Using command As New SqlCommand(query, connection)
-                    ' Add parameter for the formatted date
-                    command.Parameters.AddWithValue("@SelectedDate", formattedDate)
-
-                    ' Execute the query and read the results
-                    Using reader As SqlDataReader = command.ExecuteReader()
-                        ' Iterate through the result set and add unique values to the ListView
-                        While reader.Read()
-                            ' Add items to the ListView without checking the checkboxes
-                            ListView2.Items.Add(reader("Unit").ToString())
-                        End While
-                    End Using
-                End Using
-            End Using
-        Catch ex As System.Exception
-            ' Handle any errors that occur during database access
-            MessageBox.Show("Error retrieving data from the database: " & ex.Message)
-        End Try
+        UpdateTickCount(ListView1, LabelClassCount)
         UpdateResitExportButtonsVisibility()
     End Sub
 
@@ -693,58 +764,51 @@ Public Class Main
         Return False
     End Function
 
-    ''' <summary>Show Export to Excel and Resit Login Details when ListView1 or ListView2 has a ticked row.</summary>
+    ''' <summary>Excel when either Energyspace list is ticked. The Word sheet only when Class Created is ticked.</summary>
     Private Sub UpdateResitExportButtonsVisibility()
-        Dim show = ListViewHasAnyChecked(ListView1) OrElse ListViewHasAnyChecked(ListView2)
-        Button9.Visible = show
-        Button12.Visible = show
+        Dim classCreated = ListViewHasAnyChecked(ListView1)
+        Dim assessmentBooked = ListViewHasAnyChecked(ListView2)
+        Button9.Visible = ResitOutputVisibility.ShowExcel(classCreated, assessmentBooked)
+        Button12.Visible = ResitOutputVisibility.ShowLoginSheet(classCreated)
     End Sub
 
-    Private Sub ListView2_ItemChecked(sender As Object, e As ItemCheckedEventArgs) Handles ListView2.ItemChecked
-        ' Get the checked item in the ListView
-        Dim checkedItem = e.Item
-
-        ' Get the text of the checked item
-        Dim unit = checkedItem.Text
-
-        ' Get the date from the DatePicker
-        Dim resitDate = DateTimePicker1.Value.Date
-
-        ' Check if the item is checked
-        If checkedItem.Checked Then
-            ' Update SQL table
-            UpdateDataInSQL2(resitDate, unit)
-        End If
-        UpdateResitExportButtonsVisibility()
-        'UpdateDataGridView()
-    End Sub
-    Private Sub UpdateDataInSQL2(resitDate As Date, unit As String)
-        ' Connection string
-        Dim connectionString As String = SQLCon.connectionString
-
-        ' SQL query
-        Dim query As String = "UPDATE ElectrotechnologyReports.dbo.ElectricalResit SET [EnergyspaceAssessmentBooked] = @Checked WHERE [Resit date] = @ResitDate AND Unit = @Unit"
-
+    Private Async Sub ListView2_ItemChecked(sender As Object, e As ItemCheckedEventArgs) Handles ListView2.ItemChecked
+        If _loadingUnitLists OrElse _bindingGrid Then Return
+        Dim unit = e.Item.Text
+        Dim night = DateTimePicker1.Value.Date
         Try
-            Using connection As New SqlConnection(connectionString)
-                ' Open the connection
-                connection.Open()
-
-                ' Create command
-                Using command As New SqlCommand(query, connection)
-                    ' Add parameters
-                    command.Parameters.AddWithValue("@ResitDate", resitDate)
-                    command.Parameters.AddWithValue("@Unit", unit)
-                    ' You should replace "YourColumnName" with the name of the column you want to update in your SQL table
-                    command.Parameters.AddWithValue("@Checked", True) ' Or whatever value you want to set when the checkbox is checked
-
-                    ' Execute the query
-                    command.ExecuteNonQuery()
-                End Using
-            End Using
-        Catch ex As System.Exception
+            Await AppServices.Bookings.SetEnergyspaceAssessmentBookedAsync(night, unit, e.Item.Checked)
+            UpdateGridFlag(unit, "EnergyspaceAssessmentBooked", e.Item.Checked)
+        Catch ex As Exception
+            RevertCheck(e.Item)
             MessageBox.Show("An error occurred: " & ex.Message)
         End Try
+        UpdateTickCount(ListView2, LabelBookedCount)
+        UpdateResitExportButtonsVisibility()
+    End Sub
+
+    Private Sub RevertCheck(item As ListViewItem)
+        _loadingUnitLists = True
+        Try
+            item.Checked = Not item.Checked
+        Finally
+            _loadingUnitLists = False
+        End Try
+    End Sub
+
+    Private Sub UpdateGridFlag(unitCode As String, columnName As String, value As Boolean)
+        Dim table = TryCast(DataGridView1.DataSource, DataTable)
+        If table Is Nothing Then Return
+        Dim night = DateTimePicker1.Value.Date
+        For Each row As DataRow In table.Rows
+            If row.RowState = DataRowState.Deleted Then Continue For
+            Dim unit = Convert.ToString(row("Unit"))
+            If row.IsNull("Resit date") Then Continue For
+            Dim resitDay = Convert.ToDateTime(row("Resit date")).Date
+            If resitDay = night AndAlso String.Equals(unit, unitCode, StringComparison.OrdinalIgnoreCase) Then
+                row(columnName) = value
+            End If
+        Next
     End Sub
 
     Private Sub Button11_Click(sender As Object, e As EventArgs) Handles Button11.Click
@@ -767,22 +831,32 @@ Public Class Main
         End Try
     End Sub
 
-    ''' <summary>Builds lines like CD0044-RESIT-CERTIII-2026 from ListView2 — only items with the checkbox ticked.</summary>
-    Private Function BuildResitClassGroupLines(listView As ListView, certYear As Integer) As String
-        Dim lines As New List(Of String)
+    ''' <summary>Builds abbreviation-RESIT-suffix-year from Class Created ticks. The suffix and abbreviation come from the booking's qualification.</summary>
+    Private Async Function BuildResitClassGroupLinesAsync(listView As ListView, certYear As Integer) As Task(Of String)
+        Dim qualifications = If(AppServices.Qualifications Is Nothing, Nothing, Await AppServices.Qualifications.GetAllAsync())
+        Dim units = If(AppServices.Units Is Nothing, Nothing, Await AppServices.Units.GetAllAsync())
+        Dim bookings = If(AppServices.Bookings Is Nothing, Nothing, Await AppServices.Bookings.GetByDateAsync(DateTimePicker1.Value.Date))
+        Dim entries As New List(Of ClassGroupEntry)
         For Each item As ListViewItem In listView.Items
             If Not item.Checked Then Continue For
-            Dim u = item.Text.Trim()
-            If u.Length > 0 Then
-                Dim abbrev = UnitCodeAbbreviation.ToAbbreviatedClassCode(u)
-                lines.Add(abbrev & "-RESIT-CERTIII-" & certYear.ToString())
+            Dim code = item.Text
+            Dim package = ""
+            If bookings IsNot Nothing Then
+                Dim row = bookings.FirstOrDefault(Function(booking) String.Equals(booking.UnitCode, code, StringComparison.OrdinalIgnoreCase) AndAlso Not String.IsNullOrWhiteSpace(booking.QualificationCode))
+                If row IsNot Nothing Then package = row.QualificationCode
             End If
+            If package.Length = 0 Then package = QualificationSelection.ForNewBooking(code, units, qualifications)
+            Dim qualification As QualificationRecord = Nothing
+            If qualifications IsNot Nothing Then
+                qualification = qualifications.FirstOrDefault(Function(itemQualification) String.Equals(itemQualification.QualificationCode, package, StringComparison.OrdinalIgnoreCase))
+            End If
+            entries.Add(New ClassGroupEntry With {
+                .UnitCode = code,
+                .ClassGroupSuffix = If(qualification Is Nothing, "", qualification.ClassGroupSuffix),
+                .Rules = If(qualification Is Nothing, New List(Of AbbreviationRule)(), qualification.Rules)
+            })
         Next
-        lines.Sort(StringComparer.OrdinalIgnoreCase)
-        If lines.Count = 0 Then
-            Return "(no class groups selected — tick the units under Energyspace Assessment Booked to include them here)"
-        End If
-        Return String.Join(vbCrLf, lines)
+        Return ResitClassGroups.Build(entries, certYear)
     End Function
 
     ''' <summary>
@@ -790,7 +864,7 @@ Public Class Main
     ''' {{PASSWORD_LINE}} / {{PC_LOGIN_PASSWORD}} = PC monthly (Settings). {{MONTHLY_PASSWORD}} removed (replaced empty if present in old templates).
     ''' {{USERNAME_LINE}} optional.
     ''' </summary>
-    Private Sub Button12_Click(sender As Object, e As EventArgs) Handles Button12.Click
+    Private Async Sub Button12_Click(sender As Object, e As EventArgs) Handles Button12.Click
         Dim dailyPwd As String = Interaction.InputBox(
             "Today's daily Energyspace password (changes each day).",
             "Daily Energyspace password",
@@ -818,15 +892,62 @@ Public Class Main
         If sfd.ShowDialog(Me) <> DialogResult.OK Then Return
 
         Dim certYear = DateTimePicker1.Value.Year
-        Dim classGroupsBlock = BuildResitClassGroupLines(ListView2, certYear)
+        Dim classGroupsBlock = Await BuildResitClassGroupLinesAsync(ListView1, certYear)
         Dim resitNightLong As String = DateTimePicker1.Value.ToString("D")
+        Dim savedPath = sfd.FileName
 
-        Dim wordApp As Object = WordDocInterop.TryCreateWordApplication()
-        If wordApp Is Nothing Then
-            MessageBox.Show("Microsoft Word is required. Install desktop Word and try again.", "Word required", MessageBoxButtons.OK, MessageBoxIcon.Warning)
-            Return
-        End If
+        Button12.Enabled = False
+        UseWaitCursor = True
+        Dim previousStatus = statusLabel.Text
+        statusLabel.Text = "Waiting for Word..."
+        Dim session As OfficeSession = Nothing
+        Using dialog As New OfficeWaitDialog("Waiting for Word...")
+            dialog.Show(Me)
+            Try
+                OfficeStep("Word: waiting to attach")
+                session = Await OfficeSession.TryAttachAsync("Word.Application", TimeSpan.FromSeconds(40), dialog.Token, AddressOf OfficeStep)
+                If session Is Nothing Then
+                    If Not dialog.Token.IsCancellationRequested Then
+                        MessageBox.Show(Me, "Word didn't start. Open Word, then try again.", "Word", MessageBoxButtons.OK, MessageBoxIcon.Warning)
+                    End If
+                Else
+                Dim result = Await session.InvokeAsync(
+                    Sub() FillLoginSheet(session.Application, templatePath, savedPath, resitNightLong, classGroupsBlock, dailyPwd, pcLoginMonthly),
+                    TimeSpan.FromSeconds(45),
+                    dialog.Token)
+                If result.Kind = OfficeWaitKind.TimedOut Then
+                    MessageBox.Show(Me, "Word didn't start. Open Word, then try again.", "Word", MessageBoxButtons.OK, MessageBoxIcon.Warning)
+                ElseIf result.Problem IsNot Nothing Then
+                    MessageBox.Show(Me, "Word could not complete the document: " & result.Problem.Message, "Word", MessageBoxButtons.OK, MessageBoxIcon.Error)
+                Else
+                OfficeStep("Word: document saved")
+                If My.Settings.ResitLoginOpenDocumentAfterSave Then
+                    MessageBox.Show(Me, "Document saved:" & vbCrLf & savedPath, "Resit login sheet", MessageBoxButtons.OK, MessageBoxIcon.Information)
+                    TryOpenSavedResitLoginDocument(savedPath)
+                Else
+                    Dim openNow = MessageBox.Show(Me,
+                        "Document saved:" & vbCrLf & savedPath & vbCrLf & vbCrLf & "Open it now?",
+                        "Resit login sheet",
+                        MessageBoxButtons.YesNo,
+                        MessageBoxIcon.Information,
+                        MessageBoxDefaultButton.Button1)
+                    If openNow = DialogResult.Yes Then TryOpenSavedResitLoginDocument(savedPath)
+                End If
+                End If
+                End If
+            Catch ex As Exception
+                MessageBox.Show(Me, "Word could not complete the document: " & ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error)
+            Finally
+                dialog.Close()
+                Button12.Enabled = True
+                UseWaitCursor = False
+                statusLabel.Text = previousStatus
+            End Try
+        End Using
+        If session IsNot Nothing Then Await session.ReleaseAsync()
+    End Sub
 
+    Private Sub FillLoginSheet(wordApp As Object, templatePath As String, savedPath As String, resitNightLong As String, classGroupsBlock As String, dailyPwd As String, pcLoginMonthly As String)
         wordApp.Visible = False
         Dim doc As Object = Nothing
         Try
@@ -839,32 +960,13 @@ Public Class Main
             WordDocInterop.ReplaceAllInDocument(doc, "{{PASSWORD_LINE}}", "Password: " & pcLoginMonthly)
             WordDocInterop.ReplaceAllInDocument(doc, "{{PC_LOGIN_PASSWORD}}", pcLoginMonthly)
             ApplyLeaVuStamp(doc)
-
             Try
-                doc.SaveAs2(sfd.FileName)
+                doc.SaveAs2(savedPath)
             Catch
-                doc.SaveAs(sfd.FileName)
+                doc.SaveAs(savedPath)
             End Try
-
             doc.Close(0)
             doc = Nothing
-            Dim savedPath = sfd.FileName
-            If My.Settings.ResitLoginOpenDocumentAfterSave Then
-                MessageBox.Show("Document saved:" & vbCrLf & savedPath, "Resit login sheet", MessageBoxButtons.OK, MessageBoxIcon.Information)
-                TryOpenSavedResitLoginDocument(savedPath)
-            Else
-                Dim openNow = MessageBox.Show(
-                    "Document saved:" & vbCrLf & savedPath & vbCrLf & vbCrLf & "Open it now?",
-                    "Resit login sheet",
-                    MessageBoxButtons.YesNo,
-                    MessageBoxIcon.Information,
-                    MessageBoxDefaultButton.Button1)
-                If openNow = DialogResult.Yes Then
-                    TryOpenSavedResitLoginDocument(savedPath)
-                End If
-            End If
-        Catch ex As Exception
-            MessageBox.Show("Word could not complete the document: " & ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error)
         Finally
             If doc IsNot Nothing Then
                 Try
@@ -873,7 +975,6 @@ Public Class Main
                 End Try
                 Marshal.FinalReleaseComObject(doc)
             End If
-            WordDocInterop.QuitWord(wordApp)
         End Try
     End Sub
 
@@ -896,13 +997,11 @@ Public Class Main
         Me.Cursor = Cursors.WaitCursor
         Button13.Enabled = False
         Try
-            Dim msg = Await BookingsDataImporter.PullFromBookingsAsync(Me, DateTimePicker1.Value.Date)
+            ' TODO: Live Microsoft Bookings belongs to VU Timetable and needs Frank Offer's sign-off.
+            Dim importer As IBookingImporter = New BookingsDataImporter(Me, AppServices.Bookings)
+            Dim msg = Await importer.PullAsync(DateTimePicker1.Value.Date)
             MessageBox.Show(msg, "Pull from Bookings", MessageBoxButtons.OK, MessageBoxIcon.Information)
-            UpdateDataGridView()
-            FilterData()
-            UpdateListView(DateTimePicker1.Value)
-            UpdateListView1(DateTimePicker1.Value)
-            UpdateResitExportButtonsVisibility()
+            Await UpdateDataGridView()
         Catch ex As Exception
             MessageBox.Show(ex.Message, "Pull from Bookings", MessageBoxButtons.OK, MessageBoxIcon.Error)
         Finally

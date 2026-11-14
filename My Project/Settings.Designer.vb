@@ -56,20 +56,7 @@ Namespace My
         
         <Global.System.Configuration.UserScopedSettingAttribute(),  _
          Global.System.Diagnostics.DebuggerNonUserCodeAttribute(),  _
-         Global.System.Configuration.DefaultSettingValueAttribute("Server=DEVSQLCENTRAL.AD.VU.EDU.AU;Integrated Security=True;Connect Timeout=30;Enc"& _ 
-            "rypt=True;TrustServerCertificate=True;Multi Subnet Failover=False;")>  _
-        Public Property SQLConnection() As String
-            Get
-                Return CType(Me("SQLConnection"),String)
-            End Get
-            Set
-                Me("SQLConnection") = value
-            End Set
-        End Property
-        
-        <Global.System.Configuration.UserScopedSettingAttribute(),  _
-         Global.System.Diagnostics.DebuggerNonUserCodeAttribute(),  _
-         Global.System.Configuration.DefaultSettingValueAttribute("Futur9999stud9nt87")>  _
+         Global.System.Configuration.DefaultSettingValueAttribute("")>  _
         Public Property PcLoginMonthlyPassword() As String
             Get
                 Return CType(Me("PcLoginMonthlyPassword"),String)
@@ -148,6 +135,162 @@ Namespace My
             End Get
             Set
                 Me("ShowPullFromBookingsButton") = value
+            End Set
+        End Property
+
+        <Global.System.Configuration.UserScopedSettingAttribute(),  _
+         Global.System.Diagnostics.DebuggerNonUserCodeAttribute(),  _
+         Global.System.Configuration.DefaultSettingValueAttribute("")>  _
+        Public Property SharePointSiteUrl() As String
+            Get
+                Return CType(Me("SharePointSiteUrl"),String)
+            End Get
+            Set
+                Me("SharePointSiteUrl") = value
+            End Set
+        End Property
+
+        <Global.System.Configuration.UserScopedSettingAttribute(),  _
+         Global.System.Diagnostics.DebuggerNonUserCodeAttribute(),  _
+         Global.System.Configuration.DefaultSettingValueAttribute("")>  _
+        Public Property GraphClientId() As String
+            Get
+                Return CType(Me("GraphClientId"),String)
+            End Get
+            Set
+                Me("GraphClientId") = value
+            End Set
+        End Property
+
+        <Global.System.Configuration.UserScopedSettingAttribute(),  _
+         Global.System.Diagnostics.DebuggerNonUserCodeAttribute(),  _
+         Global.System.Configuration.DefaultSettingValueAttribute("common")>  _
+        Public Property GraphTenantId() As String
+            Get
+                Return CType(Me("GraphTenantId"),String)
+            End Get
+            Set
+                Me("GraphTenantId") = value
+            End Set
+        End Property
+
+        <Global.System.Configuration.UserScopedSettingAttribute(),  _
+         Global.System.Diagnostics.DebuggerNonUserCodeAttribute(),  _
+         Global.System.Configuration.DefaultSettingValueAttribute("False")>  _
+        Public Property GraphUseSitesSelected() As Boolean
+            Get
+                Return CType(Me("GraphUseSitesSelected"),Boolean)
+            End Get
+            Set
+                Me("GraphUseSitesSelected") = value
+            End Set
+        End Property
+
+        <Global.System.Configuration.UserScopedSettingAttribute(),  _
+         Global.System.Diagnostics.DebuggerNonUserCodeAttribute(),  _
+         Global.System.Configuration.DefaultSettingValueAttribute("ResitBookings")>  _
+        Public Property ResitBookingsListName() As String
+            Get
+                Return CType(Me("ResitBookingsListName"),String)
+            End Get
+            Set
+                Me("ResitBookingsListName") = value
+            End Set
+        End Property
+
+        <Global.System.Configuration.UserScopedSettingAttribute(),  _
+         Global.System.Diagnostics.DebuggerNonUserCodeAttribute(),  _
+         Global.System.Configuration.DefaultSettingValueAttribute("Students")>  _
+        Public Property StudentsListName() As String
+            Get
+                Return CType(Me("StudentsListName"),String)
+            End Get
+            Set
+                Me("StudentsListName") = value
+            End Set
+        End Property
+
+        <Global.System.Configuration.UserScopedSettingAttribute(),  _
+         Global.System.Diagnostics.DebuggerNonUserCodeAttribute(),  _
+         Global.System.Configuration.DefaultSettingValueAttribute("Teachers")>  _
+        Public Property TeachersListName() As String
+            Get
+                Return CType(Me("TeachersListName"),String)
+            End Get
+            Set
+                Me("TeachersListName") = value
+            End Set
+        End Property
+
+        <Global.System.Configuration.UserScopedSettingAttribute(),  _
+         Global.System.Diagnostics.DebuggerNonUserCodeAttribute(),  _
+         Global.System.Configuration.DefaultSettingValueAttribute("Units")>  _
+        Public Property UnitsListName() As String
+            Get
+                Return CType(Me("UnitsListName"),String)
+            End Get
+            Set
+                Me("UnitsListName") = value
+            End Set
+        End Property
+
+        <Global.System.Configuration.UserScopedSettingAttribute(),  _
+         Global.System.Diagnostics.DebuggerNonUserCodeAttribute(),  _
+         Global.System.Configuration.DefaultSettingValueAttribute("Qualifications")>  _
+        Public Property QualificationsListName() As String
+            Get
+                Return CType(Me("QualificationsListName"),String)
+            End Get
+            Set
+                Me("QualificationsListName") = value
+            End Set
+        End Property
+
+        <Global.System.Configuration.UserScopedSettingAttribute(),  _
+         Global.System.Diagnostics.DebuggerNonUserCodeAttribute(),  _
+         Global.System.Configuration.DefaultSettingValueAttribute("EmailSignature")>  _
+        Public Property SignatureImageLocation() As String
+            Get
+                Return CType(Me("SignatureImageLocation"),String)
+            End Get
+            Set
+                Me("SignatureImageLocation") = value
+            End Set
+        End Property
+
+        <Global.System.Configuration.UserScopedSettingAttribute(),  _
+         Global.System.Diagnostics.DebuggerNonUserCodeAttribute(),  _
+         Global.System.Configuration.DefaultSettingValueAttribute("False")>  _
+        Public Property SharePointSetupCompleted() As Boolean
+            Get
+                Return CType(Me("SharePointSetupCompleted"),Boolean)
+            End Get
+            Set
+                Me("SharePointSetupCompleted") = value
+            End Set
+        End Property
+
+        <Global.System.Configuration.UserScopedSettingAttribute(),  _
+         Global.System.Diagnostics.DebuggerNonUserCodeAttribute(),  _
+         Global.System.Configuration.DefaultSettingValueAttribute("Sample")>  _
+        Public Property DataSource() As String
+            Get
+                Return CType(Me("DataSource"),String)
+            End Get
+            Set
+                Me("DataSource") = value
+            End Set
+        End Property
+
+        <Global.System.Configuration.UserScopedSettingAttribute(),  _
+         Global.System.Diagnostics.DebuggerNonUserCodeAttribute(),  _
+         Global.System.Configuration.DefaultSettingValueAttribute("False")>  _
+        Public Property ShowTeacherEmailAndUnitName() As Boolean
+            Get
+                Return CType(Me("ShowTeacherEmailAndUnitName"),Boolean)
+            End Get
+            Set
+                Me("ShowTeacherEmailAndUnitName") = value
             End Set
         End Property
     End Class

@@ -1,330 +1,418 @@
+Imports ElectrotechnologyResit.Core
+
 Public Class EditStudent
     Public Property MainFormDataGridView As DataGridView
-    ' Define a variable to keep track of the current row index
     Private currentRowIndex As Integer = -1
+    Private _storedQualification As String = ""
+    Private _units As IReadOnlyList(Of UnitRecord) = Array.Empty(Of UnitRecord)()
+    Private _qualifications As IReadOnlyList(Of QualificationRecord) = Array.Empty(Of QualificationRecord)()
+    Private ReadOnly _qualificationText As New TextBox()
+    Private _avatar As InitialAvatar
+    Private _headerId As Label
+    Private _headerName As Label
+    Private _headerEmail As Label
+    Private _recordLabel As Label
+    Private _classCreated As ToggleSwitch
+    Private _assessmentBooked As ToggleSwitch
+
+    Public Sub New()
+        InitializeComponent()
+        BuildLayout()
+    End Sub
+
+    Private Sub BuildLayout()
+        StudentDialogLayout.Prepare(Me)
+        AcceptButton = Button1
+        CancelButton = Button2
+        ComboBox1.DropDownStyle = ComboBoxStyle.DropDown
+        ComboBox2.DropDownStyle = ComboBoxStyle.DropDownList
+        ComboBox3.DropDownStyle = ComboBoxStyle.DropDownList
+        _qualificationText.ReadOnly = True
+        _qualificationText.TabStop = False
+        _qualificationText.BackColor = SystemColors.Control
+        DateTimePicker1.Format = DateTimePickerFormat.Custom
+        DateTimePicker1.CustomFormat = "dddd, d MMMM yyyy"
+        lblTeacherEmail.Text = ""
+        lblUnit.Text = ""
+
+        _avatar = New InitialAvatar()
+        _headerId = New Label With {.AutoSize = True, .ForeColor = Color.FromArgb(0, 90, 180), .Font = New Font("Segoe UI", 11.0F, FontStyle.Bold), .Text = "Student ID"}
+        _headerName = New Label With {.AutoSize = True, .Font = New Font("Segoe UI", 12.0F, FontStyle.Bold), .Text = "Student name"}
+        _headerEmail = New Label With {.AutoSize = True, .ForeColor = Color.DimGray, .Text = ""}
+        _recordLabel = New Label With {.AutoSize = True, .Text = "Record 0 of 0", .Margin = New Padding(0, 10, 12, 0), .TextAlign = ContentAlignment.MiddleRight}
+        Dim sampleBadge = StudentDialogLayout.Badge("SAMPLE DATA", Color.DarkRed, Color.White)
+        sampleBadge.Visible = AppServices.IsSampleMode
+        Button3.AutoSize = True
+        Button4.AutoSize = True
+        Dim nav As New FlowLayoutPanel With {.FlowDirection = FlowDirection.LeftToRight, .WrapContents = False, .AutoSize = True, .Dock = DockStyle.Right}
+        nav.Controls.Add(sampleBadge)
+        nav.Controls.Add(Button3)
+        nav.Controls.Add(Button4)
+        nav.Controls.Add(_recordLabel)
+
+        Dim identity As New FlowLayoutPanel With {.FlowDirection = FlowDirection.TopDown, .WrapContents = False, .AutoSize = True, .Margin = New Padding(12, 6, 0, 0)}
+        identity.Controls.Add(_headerId)
+        identity.Controls.Add(_headerName)
+        identity.Controls.Add(_headerEmail)
+        Dim header As New TableLayoutPanel With {.Dock = DockStyle.Fill, .ColumnCount = 3, .RowCount = 1, .BackColor = Color.FromArgb(245, 247, 250), .Padding = New Padding(8)}
+        header.ColumnStyles.Add(New ColumnStyle(SizeType.Absolute, 72))
+        header.ColumnStyles.Add(New ColumnStyle(SizeType.Percent, 100))
+        header.ColumnStyles.Add(New ColumnStyle(SizeType.AutoSize))
+        header.Controls.Add(_avatar, 0, 0)
+        header.Controls.Add(identity, 1, 0)
+        header.Controls.Add(nav, 2, 0)
+
+        Dim idRow As New TableLayoutPanel With {.ColumnCount = 2, .Dock = DockStyle.Top, .AutoSize = True, .Width = 300}
+        idRow.ColumnStyles.Add(New ColumnStyle(SizeType.Percent, 100))
+        idRow.ColumnStyles.Add(New ColumnStyle(SizeType.Absolute, 160))
+        TextBox2.Dock = DockStyle.Top
+        Button5.Dock = DockStyle.Top
+        Button5.Height = 27
+        idRow.Controls.Add(TextBox2, 0, 0)
+        idRow.Controls.Add(Button5, 1, 0)
+        Dim studentColumn As New FlowLayoutPanel With {.Dock = DockStyle.Fill, .FlowDirection = FlowDirection.TopDown, .WrapContents = False, .AutoScroll = True, .Padding = New Padding(8)}
+        studentColumn.Controls.Add(SectionTitle("STUDENT"))
+        studentColumn.Controls.Add(Labeled("Student ID", idRow))
+        studentColumn.Controls.Add(StudentDialogLayout.Field("First name", TextBox3, Nothing))
+        studentColumn.Controls.Add(StudentDialogLayout.Field("Last name", TextBox4, Nothing))
+        studentColumn.Controls.Add(StudentDialogLayout.Field("Student email", TextBox5, Nothing))
+        For Each control As Control In studentColumn.Controls
+            control.Width = 300
+        Next
+
+        Dim bookingColumn As New FlowLayoutPanel With {.Dock = DockStyle.Fill, .FlowDirection = FlowDirection.TopDown, .WrapContents = False, .AutoScroll = True, .Padding = New Padding(8)}
+        bookingColumn.Controls.Add(SectionTitle("RESIT BOOKING"))
+        bookingColumn.Controls.Add(StudentDialogLayout.Field("Qualification", _qualificationText, Nothing))
+        bookingColumn.Controls.Add(StudentDialogLayout.Field("Unit", ComboBox2, lblUnit))
+        bookingColumn.Controls.Add(StudentDialogLayout.Field("Teacher", ComboBox1, lblTeacherEmail))
+        Dim pair As New TableLayoutPanel With {.ColumnCount = 2, .Dock = DockStyle.Top, .AutoSize = True, .Width = 320}
+        pair.ColumnStyles.Add(New ColumnStyle(SizeType.Percent, 50))
+        pair.ColumnStyles.Add(New ColumnStyle(SizeType.Percent, 50))
+        pair.Controls.Add(StudentDialogLayout.Field("Attempt number", ComboBox3, Nothing), 0, 0)
+        pair.Controls.Add(StudentDialogLayout.Field("Blockgroup", txtBlockgroup, Nothing), 1, 0)
+        bookingColumn.Controls.Add(pair)
+        bookingColumn.Controls.Add(StudentDialogLayout.Field("Booked assessment date", DateTimePicker1, Nothing))
+        For Each control As Control In bookingColumn.Controls
+            If control.Width < 280 Then control.Width = 320
+        Next
+
+        Dim columns As New TableLayoutPanel With {.Dock = DockStyle.Fill, .ColumnCount = 2, .RowCount = 1}
+        columns.ColumnStyles.Add(New ColumnStyle(SizeType.Percent, 50))
+        columns.ColumnStyles.Add(New ColumnStyle(SizeType.Percent, 50))
+        columns.Controls.Add(studentColumn, 0, 0)
+        columns.Controls.Add(bookingColumn, 1, 0)
+
+        _classCreated = New ToggleSwitch()
+        _assessmentBooked = New ToggleSwitch()
+        Dim energy As New TableLayoutPanel With {.Dock = DockStyle.Fill, .ColumnCount = 2, .Padding = New Padding(12, 8, 12, 8)}
+        energy.ColumnStyles.Add(New ColumnStyle(SizeType.Percent, 50))
+        energy.ColumnStyles.Add(New ColumnStyle(SizeType.Percent, 50))
+        energy.Controls.Add(SwitchRow(_classCreated, "Class created", "Has the Energyspace class been created?"), 0, 0)
+        energy.Controls.Add(SwitchRow(_assessmentBooked, "Assessment booked", "Has the assessment been booked on Energyspace?"), 1, 0)
+        Dim energyBox As New GroupBox With {.Text = "ENERGYSPACE", .Dock = DockStyle.Fill, .Padding = New Padding(8)}
+        energyBox.Controls.Add(energy)
+
+        StudentDialogLayout.StyleClose(Button2)
+        StudentDialogLayout.StylePrimary(Button1)
+        Dim footer As New FlowLayoutPanel With {.Dock = DockStyle.Fill, .FlowDirection = FlowDirection.RightToLeft, .Padding = New Padding(0, 8, 0, 0)}
+        footer.Controls.Add(Button1)
+        footer.Controls.Add(Button2)
+
+        Dim root As New TableLayoutPanel With {.Dock = DockStyle.Fill, .ColumnCount = 1, .RowCount = 4, .Padding = New Padding(12)}
+        root.RowStyles.Add(New RowStyle(SizeType.Absolute, 84))
+        root.RowStyles.Add(New RowStyle(SizeType.Percent, 100))
+        root.RowStyles.Add(New RowStyle(SizeType.Absolute, 96))
+        root.RowStyles.Add(New RowStyle(SizeType.Absolute, 52))
+        root.Controls.Add(header, 0, 0)
+        root.Controls.Add(columns, 0, 1)
+        root.Controls.Add(energyBox, 0, 2)
+        root.Controls.Add(footer, 0, 3)
+        Controls.Add(root)
+    End Sub
+
+    Private Shared Function SectionTitle(text As String) As Label
+        Return New Label With {.Text = text, .AutoSize = True, .Font = New Font("Segoe UI", 9.0F, FontStyle.Bold), .Margin = New Padding(0, 0, 0, 4)}
+    End Function
+
+    Private Shared Function Labeled(caption As String, editor As Control) As Control
+        Dim stack As New TableLayoutPanel With {.ColumnCount = 1, .AutoSize = True, .Dock = DockStyle.Top, .Margin = New Padding(0, 0, 0, 4)}
+        stack.Controls.Add(New Label With {.Text = caption, .AutoSize = True, .Margin = New Padding(0, 6, 0, 2)}, 0, 0)
+        editor.Margin = New Padding(0)
+        stack.Controls.Add(editor, 0, 1)
+        Return stack
+    End Function
+
+    Private Shared Function SwitchRow(toggle As ToggleSwitch, title As String, hint As String) As Control
+        Dim row As New TableLayoutPanel With {.ColumnCount = 2, .Dock = DockStyle.Fill}
+        row.ColumnStyles.Add(New ColumnStyle(SizeType.Absolute, 60))
+        row.ColumnStyles.Add(New ColumnStyle(SizeType.Percent, 100))
+        toggle.Margin = New Padding(0, 8, 8, 0)
+        row.Controls.Add(toggle, 0, 0)
+        Dim text As New FlowLayoutPanel With {.FlowDirection = FlowDirection.TopDown, .WrapContents = False, .AutoSize = True}
+        text.Controls.Add(New Label With {.Text = title, .AutoSize = True, .Font = New Font("Segoe UI", 9.0F, FontStyle.Bold)})
+        text.Controls.Add(New Label With {.Text = hint, .AutoSize = True, .ForeColor = Color.DimGray, .MaximumSize = New Size(260, 0)})
+        row.Controls.Add(text, 1, 0)
+        Return row
+    End Function
 
     Private Sub Button2_Click(sender As Object, e As EventArgs) Handles Button2.Click
         Me.Close()
-
     End Sub
 
-    Private Sub EditStudent_Load(sender As Object, e As EventArgs) Handles MyBase.Load
-        PopulateUnitComboBox()
-        PopulateTeacherComboBox()
-        ' Initialize currentRowIndex to 0 if there are rows in the DataGridView
-        If MainFormDataGridView.Rows.Count > 0 Then
+    Private Async Sub EditStudent_Load(sender As Object, e As EventArgs) Handles MyBase.Load
+        Await PopulateLookups()
+        If MainFormDataGridView IsNot Nothing AndAlso MainFormDataGridView.Rows.Count > 0 Then
             currentRowIndex = 0
-            LoadDataFromDataGridView()
+            Await LoadDataFromDataGridView()
         Else
-            ' If there are no rows, disable navigation buttons
             Button3.Enabled = False
             Button4.Enabled = False
+            _recordLabel.Text = "Record 0 of 0"
         End If
+        StudentDialogLayout.ApplyLookupNotes(lblTeacherEmail, lblUnit)
     End Sub
-    Private Sub PopulateUnitComboBox()
-        ' Construct the SQL query to retrieve Unit_Code column from UEE30820units table
-        Dim query As String = "SELECT Unit_Code FROM ElectrotechnologyReports.dbo.UEE30820units"
 
-        ' Create a SqlConnection
-        Using connection As New SqlConnection(SQLCon.connectionString)
-            Try
-                ' Open the connection
-                connection.Open()
+    Private Async Function PopulateLookups() As Task
+        Try
+            _units = Await AppServices.Units.GetAllAsync()
+            _qualifications = Await AppServices.Qualifications.GetAllAsync()
+            ComboBox1.Items.Clear()
+            For Each teacher In Await AppServices.Teachers.GetAllAsync()
+                ComboBox1.Items.Add(teacher.FullName)
+            Next
+        Catch ex As Exception
+            MessageBox.Show(Me, ex.Message, "Edit Student", MessageBoxButtons.OK, MessageBoxIcon.Warning)
+        End Try
+    End Function
 
-                ' Create a SqlCommand
-                Using command As New SqlCommand(query, connection)
-                    ' Execute the query
-                    Using reader As SqlDataReader = command.ExecuteReader()
-                        ' Clear the ComboBox
-                        'ComboBox2.Items.Clear()
-                        ComboBox2.Items.Clear()
-                        ' Populate the ComboBox with data from the query result
-                        While reader.Read()
-                            'ComboBox2.Items.Add(reader("Unit_Code").ToString())
-                            ComboBox2.Items.Add(reader("Unit_Code").ToString())
-                        End While
-                    End Using
-                End Using
-            Catch ex As Exception
-                ' Handle any exceptions
-                MessageBox.Show("Error: " & ex.Message)
-            End Try
-        End Using
-    End Sub
-    Private Sub PopulateTeacherComboBox()
-        ' Construct the SQL query to retrieve Teacher_Full_Name column from TeacherList table
-        Dim query As String = "SELECT Teacher_Full_Name FROM ElectrotechnologyReports.dbo.TeacherList ORDER BY Teacher_Full_Name ASC"
-
-
-        ' Create a SqlConnection
-        Using connection As New SqlConnection(SQLCon.connectionString)
-            Try
-                ' Open the connection
-                connection.Open()
-
-                ' Create a SqlCommand
-                Using command As New SqlCommand(query, connection)
-                    ' Execute the query
-                    Using reader As SqlDataReader = command.ExecuteReader()
-                        ' Clear the ComboBox
-                        ComboBox1.Items.Clear()
-                        ' Populate the ComboBox with data from the query result
-                        While reader.Read()
-                            ComboBox1.Items.Add(reader("Teacher_Full_Name").ToString())
-                        End While
-                    End Using
-                End Using
-            Catch ex As Exception
-                ' Handle any exceptions
-                MessageBox.Show("Error: " & ex.Message)
-            End Try
-        End Using
-    End Sub
-    Private Sub LoadDataFromDataGridView()
-        If currentRowIndex >= 0 AndAlso currentRowIndex < MainFormDataGridView.Rows.Count Then
-            Dim row As DataGridViewRow = MainFormDataGridView.Rows(currentRowIndex)
-
-            If row IsNot Nothing Then
-                TextBox2.Text = If(row.Cells("Student ID").Value IsNot Nothing, row.Cells("Student ID").Value.ToString(), "")
-                TextBox3.Text = If(row.Cells("Student Firstname").Value IsNot Nothing, row.Cells("Student Firstname").Value.ToString(), "")
-                TextBox4.Text = If(row.Cells("Student Surname").Value IsNot Nothing, row.Cells("Student Surname").Value.ToString(), "")
-                TextBox5.Text = If(row.Cells("Student Email").Value IsNot Nothing, row.Cells("Student Email").Value.ToString(), "")
-                ComboBox1.Text = If(row.Cells("AllocatedTeacher").Value IsNot Nothing, row.Cells("AllocatedTeacher").Value.ToString(), "")
-                ComboBox2.Text = If(row.Cells("Unit").Value IsNot Nothing, row.Cells("Unit").Value.ToString(), "")
-                ComboBox3.Text = If(row.Cells("AttemptNo").Value IsNot Nothing, row.Cells("AttemptNo").Value.ToString(), "")
-                ComboBox5.Text = If(row.Cells("EnergyspaceCreated").Value IsNot Nothing, row.Cells("EnergyspaceCreated").Value.ToString(), "")
-                ComboBox4.Text = If(row.Cells("EnergyspaceAssessmentBooked").Value IsNot Nothing, row.Cells("EnergyspaceAssessmentBooked").Value.ToString(), "")
-                txtBlockgroup.Text = If(row.Cells("Blockgroup").Value IsNot Nothing, row.Cells("Blockgroup").Value.ToString(), "")
-
-                ' Handle DateTimePicker value separately
-                Dim resitDateValue = row.Cells("Resit date").Value
-                If resitDateValue IsNot Nothing AndAlso TypeOf resitDateValue IsNot DBNull Then
-                    DateTimePicker1.Value = Convert.ToDateTime(resitDateValue)
-                Else
-                    DateTimePicker1.Value = DateTimePicker1.MinDate
-                End If
-
-                Button3.Enabled = currentRowIndex > 0
-                Button4.Enabled = currentRowIndex < MainFormDataGridView.Rows.Count - 1
+    Private Sub FillUnitsForStoredQualification()
+        ComboBox2.Items.Clear()
+        For Each unit In _units
+            If String.Equals(If(unit.QualificationCode, ""), _storedQualification, StringComparison.OrdinalIgnoreCase) Then
+                ComboBox2.Items.Add(New UnitChoice With {.Code = unit.UnitCode, .Title = unit.UnitTitle})
             End If
+        Next
+    End Sub
+
+    Private Sub SelectUnit(code As String)
+        For index = 0 To ComboBox2.Items.Count - 1
+            Dim item = TryCast(ComboBox2.Items(index), UnitChoice)
+            If item IsNot Nothing AndAlso String.Equals(item.Code, code, StringComparison.OrdinalIgnoreCase) Then
+                ComboBox2.SelectedIndex = index
+                Return
+            End If
+        Next
+        If Not String.IsNullOrWhiteSpace(code) Then
+            ComboBox2.Items.Add(New UnitChoice With {.Code = code, .Title = ""})
+            ComboBox2.SelectedIndex = ComboBox2.Items.Count - 1
         End If
     End Sub
 
-    Private Sub Button3_Click(sender As Object, e As EventArgs) Handles Button3.Click
+    Private Function SelectedUnit() As UnitChoice
+        Return TryCast(ComboBox2.SelectedItem, UnitChoice)
+    End Function
+
+    Private Async Function LoadDataFromDataGridView() As Task
+        If MainFormDataGridView Is Nothing Then Return
+        If currentRowIndex < 0 OrElse currentRowIndex >= MainFormDataGridView.Rows.Count Then Return
+        Dim row As DataGridViewRow = MainFormDataGridView.Rows(currentRowIndex)
+        If row Is Nothing OrElse row.IsNewRow Then Return
+        TextBox2.Text = CellText(row, "Student ID")
+        TextBox3.Text = CellText(row, "Student Firstname")
+        TextBox4.Text = CellText(row, "Surname")
+        TextBox5.Text = CellText(row, "Email")
+        SelectTeacher(CellText(row, "AllocatedTeacher"))
+        _storedQualification = CellText(row, "QualificationCode")
+        _qualificationText.Text = QualificationDisplay(_storedQualification)
+        FillUnitsForStoredQualification()
+        SelectUnit(CellText(row, "Unit"))
+        ComboBox3.Text = CellText(row, "AttemptNo")
+        _classCreated.Checked = CellBool(row, "EnergyspaceClassCreated")
+        _assessmentBooked.Checked = CellBool(row, "EnergyspaceAssessmentBooked")
+        txtBlockgroup.Text = CellText(row, "Blockgroup")
+        Dim unit = SelectedUnit()
+        lblUnit.Text = If(unit Is Nothing OrElse String.IsNullOrEmpty(unit.Title), CellText(row, "Unit Name"), unit.Title)
+        Await ShowTeacherEmailAsync(ComboBox1.Text)
+
+        Dim resitDateValue = row.Cells("Resit date").Value
+        If resitDateValue IsNot Nothing AndAlso TypeOf resitDateValue IsNot DBNull Then
+            DateTimePicker1.Value = Convert.ToDateTime(resitDateValue)
+        End If
+        Dim count = MainFormDataGridView.Rows.Count
+        _recordLabel.Text = "Record " & (currentRowIndex + 1).ToString() & " of " & count.ToString()
+        Button3.Enabled = currentRowIndex > 0
+        Button4.Enabled = currentRowIndex < count - 1
+        RefreshHeader()
+    End Function
+
+    Private Sub SelectTeacher(name As String)
+        Dim index = ComboBox1.FindStringExact(name)
+        If index >= 0 Then
+            ComboBox1.SelectedIndex = index
+        Else
+            ComboBox1.SelectedIndex = -1
+            ComboBox1.Text = name
+        End If
+    End Sub
+
+    Private Function QualificationDisplay(code As String) As String
+        If String.IsNullOrWhiteSpace(code) Then Return "(not recorded)"
+        For Each qualification In _qualifications
+            If String.Equals(qualification.QualificationCode, code, StringComparison.OrdinalIgnoreCase) Then
+                Return New PackageChoice With {.Code = qualification.QualificationCode, .Title = qualification.Title}.ToString()
+            End If
+        Next
+        Return code
+    End Function
+
+    Private Shared Function CellText(row As DataGridViewRow, columnName As String) As String
+        Dim value = row.Cells(columnName).Value
+        If value Is Nothing OrElse TypeOf value Is DBNull Then Return ""
+        Return value.ToString()
+    End Function
+
+    Private Shared Function CellBool(row As DataGridViewRow, columnName As String) As Boolean
+        Dim value = row.Cells(columnName).Value
+        If value Is Nothing OrElse TypeOf value Is DBNull Then Return False
+        If TypeOf value Is Boolean Then Return CBool(value)
+        Dim parsed As Boolean
+        If Boolean.TryParse(value.ToString(), parsed) Then Return parsed
+        Return False
+    End Function
+
+    Private Async Sub Button3_Click(sender As Object, e As EventArgs) Handles Button3.Click
         If currentRowIndex > 0 Then
             currentRowIndex -= 1
-            LoadDataFromDataGridView()
+            Await LoadDataFromDataGridView()
         End If
     End Sub
 
-    Private Sub Button4_Click(sender As Object, e As EventArgs) Handles Button4.Click
+    Private Async Sub Button4_Click(sender As Object, e As EventArgs) Handles Button4.Click
+        If MainFormDataGridView Is Nothing Then Return
         If currentRowIndex < MainFormDataGridView.Rows.Count - 1 Then
             currentRowIndex += 1
-            LoadDataFromDataGridView()
-            ' Disable the Next button if there are no more rows after navigating
-            Button4.Enabled = currentRowIndex < MainFormDataGridView.Rows.Count - 1
+            Await LoadDataFromDataGridView()
         End If
     End Sub
 
-    Private Sub Button1_Click(sender As Object, e As EventArgs) Handles Button1.Click
-        Dim energySpaceCreated As Boolean
-        Dim energySpaceAssessmentBooked As Boolean
-        If Not Boolean.TryParse(ComboBox5.Text, energySpaceCreated) Then energySpaceCreated = False
-        If Not Boolean.TryParse(ComboBox4.Text, energySpaceAssessmentBooked) Then energySpaceAssessmentBooked = False
-
-        ' Update data in the current row of the DataGridView
-        If currentRowIndex >= 0 AndAlso currentRowIndex < MainFormDataGridView.Rows.Count Then
-            Dim row As DataGridViewRow = MainFormDataGridView.Rows(currentRowIndex)
-            row.Cells("Student ID").Value = TextBox2.Text
-            row.Cells("Student Firstname").Value = TextBox3.Text
-            row.Cells("Student Surname").Value = TextBox4.Text
-            row.Cells("Student Email").Value = TextBox5.Text
-            row.Cells("AllocatedTeacher").Value = ComboBox1.Text
-            row.Cells("AllocatedTeacherEmail").Value = lblTeacherEmail.Text
-            row.Cells("Unit").Value = ComboBox2.Text
-            row.Cells("Unit Name").Value = lblUnit.Text
-            row.Cells("AttemptNo").Value = ComboBox3.Text
-            row.Cells("EnergyspaceCreated").Value = ComboBox5.Text
-            row.Cells("EnergyspaceAssessmentBooked").Value = ComboBox4.Text
-            row.Cells("Resit date").Value = DateTimePicker1.Value.ToString("yyyy-MM-dd")
-            row.Cells("Blockgroup").Value = txtBlockgroup.Text
-
-            ' Update the corresponding row in the SQL table
-            Try
-                Using connection As New SqlConnection(SQLCon.connectionString)
-                    connection.Open()
-                    Dim updateCommand As String = "UPDATE ElectrotechnologyReports.dbo.ElectricalResit SET [Student Firstname] = @StudentFirstname, " &
-                                              "[Student Surname] = @StudentSurname, " &
-                                              "[Student Email] = @StudentEmail, " &
-                                              "[AllocatedTeacher] = @AllocatedTeacher, " &
-                                              "[AllocatedTeacherEmail]=@AllocatedTeacherEmail, " &
-                                              "Unit = @Unit, " &
-                                              "[Unit Name] = @UnitName, " &
-                                              "AttemptNo = @AttemptNo, " &
-                                              "EnergyspaceCreated = @EnergyspaceCreated, " &
-                                              "EnergyspaceAssessmentBooked = @EnergyspaceAssessmentBooked, " &
-                                              "[Resit date] = @ResitDate, " &
-                                              "Blockgroup = @Blockgroup " &
-                                              "WHERE [Student ID] = @StudentID"
-
-                    Using command As New SqlCommand(updateCommand, connection)
-                        ' Add parameters
-                        command.Parameters.AddWithValue("@StudentID", TextBox2.Text)
-                        command.Parameters.AddWithValue("@StudentFirstname", TextBox3.Text)
-                        command.Parameters.AddWithValue("@StudentSurname", TextBox4.Text)
-                        command.Parameters.AddWithValue("@StudentEmail", TextBox5.Text)
-                        command.Parameters.AddWithValue("@AllocatedTeacher", ComboBox1.Text)
-                        command.Parameters.AddWithValue("@AllocatedTeacherEmail", lblTeacherEmail.Text)
-                        command.Parameters.AddWithValue("@Unit", ComboBox2.Text)
-                        command.Parameters.AddWithValue("@UnitName", lblUnit.Text)
-                        command.Parameters.AddWithValue("@AttemptNo", ComboBox3.Text)
-                        command.Parameters.AddWithValue("@EnergyspaceCreated", energySpaceCreated)
-                        command.Parameters.AddWithValue("@EnergyspaceAssessmentBooked", energySpaceAssessmentBooked)
-                        command.Parameters.AddWithValue("@ResitDate", DateTimePicker1.Value)
-                        command.Parameters.AddWithValue("@Blockgroup", txtBlockgroup.Text)
-
-                        ' Execute the command
-                        command.ExecuteNonQuery()
-                    End Using
-                End Using
-                MessageBox.Show("Data updated successfully.")
-            Catch ex As Exception
-                MessageBox.Show("Error updating data: " & ex.Message)
-            End Try
-        End If
-    End Sub
-
-    Private Sub ComboBox1_SelectedIndexChanged(sender As Object, e As EventArgs) Handles ComboBox1.SelectedIndexChanged
-        ' Update the label with the email of the selected item in the ComboBox
-        If ComboBox1.SelectedItem IsNot Nothing Then
-            UpdateEmailLabel(ComboBox1.SelectedItem.ToString())
-        End If
-    End Sub
-    Private Sub UpdateEmailLabel(teacherFullName As String)
-        ' Construct the SQL query to retrieve the Email column based on the selected Teacher_Full_Name
-        Dim query As String = "SELECT Email FROM ElectrotechnologyReports.dbo.TeacherList WHERE Teacher_Full_Name = @TeacherFullName"
-
-        ' Create a SqlConnection
-        Using connection As New SqlConnection(SQLCon.connectionString)
-            Try
-                ' Open the connection
-                connection.Open()
-
-                ' Create a SqlCommand
-                Using command As New SqlCommand(query, connection)
-                    ' Add parameters
-                    command.Parameters.AddWithValue("@TeacherFullName", teacherFullName)
-
-                    ' Execute the query
-                    Dim email As Object = command.ExecuteScalar()
-
-                    ' Update the label with the retrieved email
-                    If email IsNot Nothing Then
-                        lblTeacherEmail.Text = email.ToString()
-                    Else
-                        lblTeacherEmail.Text = "Email not found"
-                    End If
-                End Using
-            Catch ex As Exception
-                ' Handle any exceptions
-                MessageBox.Show("Error: " & ex.Message)
-            End Try
-        End Using
-    End Sub
-    Private Sub UpdateUnitLabel(unitCode As String)
-        ' Construct the SQL query with parameter
-        Dim query As String = "SELECT Unit_Title FROM ElectrotechnologyReports.dbo.UEE30820units WHERE Unit_Code = @UnitCode"
-
-        ' Create a SqlConnection
-        Using connection As New SqlConnection(SQLCon.connectionString)
-            Try
-                ' Open the connection
-                connection.Open()
-
-                ' Create a SqlCommand
-                Using command As New SqlCommand(query, connection)
-                    ' Add parameter
-                    command.Parameters.AddWithValue("@UnitCode", unitCode)
-
-                    ' Execute the query
-                    Dim unitTitle As Object = command.ExecuteScalar()
-
-                    ' Update lblUnit with the retrieved Unit_Title
-                    If unitTitle IsNot Nothing Then
-                        lblUnit.Text = unitTitle.ToString()
-                    Else
-                        lblUnit.Text = "Unit Title not found"
-                    End If
-                End Using
-            Catch ex As Exception
-                ' Handle any exceptions
-                MessageBox.Show("Error: " & ex.Message)
-            End Try
-        End Using
-    End Sub
-
-    Private Sub ComboBox2_SelectedIndexChanged(sender As Object, e As EventArgs) Handles ComboBox2.SelectedIndexChanged
-        If ComboBox2.SelectedItem IsNot Nothing Then
-            UpdateUnitLabel(ComboBox2.SelectedItem.ToString())
-        End If
-    End Sub
-
-    Private Sub Button5_Click(sender As Object, e As EventArgs) Handles Button5.Click
-        ' Get the Student ID from the textbox
-        Dim studentID As String = TextBox2.Text.Trim()
-
-        ' Check if Student ID is provided
-        If String.IsNullOrWhiteSpace(studentID) Then
-            MessageBox.Show("Please enter Student ID.")
+    Private Async Sub Button1_Click(sender As Object, e As EventArgs) Handles Button1.Click
+        If MainFormDataGridView Is Nothing Then Return
+        If currentRowIndex < 0 OrElse currentRowIndex >= MainFormDataGridView.Rows.Count Then Return
+        Dim row As DataGridViewRow = MainFormDataGridView.Rows(currentRowIndex)
+        If row.IsNewRow Then Return
+        Dim unit = SelectedUnit()
+        If unit Is Nothing Then
+            MessageBox.Show(Me, "Please select a unit.", "Edit Student", MessageBoxButtons.OK, MessageBoxIcon.Information)
             Return
         End If
+        Try
+            Dim teacherEmail = Await AppServices.Teachers.FindEmailAsync(ComboBox1.Text)
+            lblTeacherEmail.Text = If(String.IsNullOrEmpty(teacherEmail), "Email not found", teacherEmail)
+            Dim unitTitle = If(unit.Title, "")
+            If String.IsNullOrEmpty(unitTitle) Then unitTitle = lblUnit.Text
+            If Not String.IsNullOrEmpty(unitTitle) Then lblUnit.Text = unitTitle
 
-        ' Construct the SQL query to retrieve other details based on Student ID
-        Dim query As String = "SELECT [Student Given Name], [Student Family Name], [Student Personal Email], [Block Group Code] FROM ElectrotechnologyReports.dbo.AgreementsDetails WHERE [Student ID] = @StudentID"
+            row.Cells("Student ID").Value = TextBox2.Text
+            row.Cells("Student Firstname").Value = TextBox3.Text
+            row.Cells("Surname").Value = TextBox4.Text
+            row.Cells("Email").Value = TextBox5.Text
+            row.Cells("AllocatedTeacher").Value = ComboBox1.Text
+            row.Cells("AllocatedTeacher email").Value = teacherEmail
+            row.Cells("Unit").Value = unit.Code
+            row.Cells("Unit Name").Value = unitTitle
+            row.Cells("AttemptNo").Value = ComboBox3.Text
+            row.Cells("EnergyspaceClassCreated").Value = _classCreated.Checked
+            row.Cells("EnergyspaceAssessmentBooked").Value = _assessmentBooked.Checked
+            row.Cells("Resit date").Value = DateTimePicker1.Value.Date
+            row.Cells("Blockgroup").Value = txtBlockgroup.Text
 
-        ' Create a SqlConnection
-        Using connection As New SqlConnection(SQLCon.connectionString)
-            Try
-                ' Open the connection
-                connection.Open()
+            Dim booking As New ResitBooking With {
+                .StudentId = TextBox2.Text.Trim(),
+                .FirstName = TextBox3.Text,
+                .Surname = TextBox4.Text,
+                .Email = TextBox5.Text,
+                .TeacherName = ComboBox1.Text,
+                .TeacherEmail = teacherEmail,
+                .UnitCode = unit.Code,
+                .UnitName = unitTitle,
+                .AttemptNo = ComboBox3.Text,
+                .EnergyspaceCreated = _classCreated.Checked,
+                .EnergyspaceAssessmentBooked = _assessmentBooked.Checked,
+                .ResitDate = DateTimePicker1.Value.Date,
+                .BlockGroup = txtBlockgroup.Text
+            }
+            Await AppServices.Bookings.UpsertAsync(booking, preserveEnergyspaceFlags:=False)
+            Dim mainForm As Main = TryCast(Application.OpenForms("Main"), Main)
+            If mainForm IsNot Nothing Then Await mainForm.UpdateDataGridView()
+            MessageBox.Show(Me, "Data updated successfully.", "Edit Student", MessageBoxButtons.OK, MessageBoxIcon.Information)
+        Catch ex As Exception
+            MessageBox.Show(Me, "Error updating data: " & ex.Message, "Edit Student", MessageBoxButtons.OK, MessageBoxIcon.Warning)
+        End Try
+    End Sub
 
-                ' Create a SqlCommand
-                Using command As New SqlCommand(query, connection)
-                    ' Add parameters
-                    command.Parameters.AddWithValue("@StudentID", studentID)
+    Private Async Sub ComboBox1_SelectedIndexChanged(sender As Object, e As EventArgs) Handles ComboBox1.SelectedIndexChanged
+        If ComboBox1.SelectedItem Is Nothing AndAlso String.IsNullOrWhiteSpace(ComboBox1.Text) Then
+            lblTeacherEmail.Text = ""
+            Return
+        End If
+        Await ShowTeacherEmailAsync(ComboBox1.Text)
+    End Sub
 
-                    ' Execute the query
-                    Dim reader As SqlDataReader = command.ExecuteReader()
+    Private Async Function ShowTeacherEmailAsync(teacherFullName As String) As Task
+        Try
+            Dim email = Await AppServices.Teachers.FindEmailAsync(teacherFullName)
+            lblTeacherEmail.Text = If(String.IsNullOrEmpty(email), "Email not found", email)
+        Catch ex As Exception
+            MessageBox.Show(Me, ex.Message, "Edit Student", MessageBoxButtons.OK, MessageBoxIcon.Warning)
+        End Try
+    End Function
 
-                    ' Check if any records are returned
-                    If reader.HasRows Then
-                        ' Read the first record
-                        reader.Read()
+    Private Sub ComboBox2_SelectedIndexChanged(sender As Object, e As EventArgs) Handles ComboBox2.SelectedIndexChanged
+        Dim unit = SelectedUnit()
+        If unit IsNot Nothing AndAlso Not String.IsNullOrEmpty(unit.Title) Then lblUnit.Text = unit.Title
+    End Sub
 
-                        ' Populate the text boxes with the retrieved values
-                        TextBox3.Text = reader("Student Given Name").ToString()
-                        TextBox4.Text = reader("Student Family Name").ToString()
-                        TextBox5.Text = reader("Student Personal Email").ToString()
-                        txtBlockgroup.Text = reader("Block Group Code").ToString()
-                        ComboBox5.Text = "False"
-                        ComboBox4.Text = "False"
-                    Else
-                        ' If no record found, display a message
-                        MessageBox.Show("No record found for the provided Student ID.")
-                        ' Clear text boxes
-                        TextBox3.Clear()
-                        TextBox4.Clear()
-                        TextBox5.Clear()
-                        txtBlockgroup.Text = ""
-                    End If
+    Private Sub IdentityChanged(sender As Object, e As EventArgs) Handles TextBox2.TextChanged, TextBox3.TextChanged, TextBox4.TextChanged, TextBox5.TextChanged
+        RefreshHeader()
+    End Sub
 
-                    ' Close the data reader
-                    reader.Close()
-                End Using
-            Catch ex As Exception
-                ' Handle any exceptions
-                MessageBox.Show("Error: " & ex.Message)
-            End Try
-        End Using
+    Private Sub RefreshHeader()
+        If _headerId Is Nothing Then Return
+        Dim id = TextBox2.Text.Trim()
+        Dim given = TextBox3.Text.Trim()
+        Dim family = TextBox4.Text.Trim()
+        _headerId.Text = If(id.Length = 0, "Student ID", id)
+        Dim name = (given & " " & family).Trim()
+        _headerName.Text = If(name.Length = 0, "Student name", name)
+        _headerEmail.Text = TextBox5.Text.Trim()
+        _avatar.Initials = StudentDialogLayout.Initials(given, family)
+    End Sub
+
+    Private Async Sub Button5_Click(sender As Object, e As EventArgs) Handles Button5.Click
+        Dim studentID As String = TextBox2.Text.Trim()
+        If String.IsNullOrWhiteSpace(studentID) Then
+            MessageBox.Show(Me, "Please enter Student ID.", "Edit Student", MessageBoxButtons.OK, MessageBoxIcon.Information)
+            Return
+        End If
+        Try
+            Dim student = Await AppServices.Students.FindByStudentIdAsync(studentID)
+            If student IsNot Nothing Then
+                TextBox3.Text = student.GivenName
+                TextBox4.Text = student.FamilyName
+                TextBox5.Text = student.PersonalEmail
+                txtBlockgroup.Text = student.BlockGroupCode
+                _classCreated.Checked = False
+                _assessmentBooked.Checked = False
+            Else
+                MessageBox.Show(Me, "No record found for the provided Student ID.", "Edit Student", MessageBoxButtons.OK, MessageBoxIcon.Information)
+                TextBox3.Clear()
+                TextBox4.Clear()
+                TextBox5.Clear()
+                txtBlockgroup.Text = ""
+            End If
+            RefreshHeader()
+        Catch ex As Exception
+            MessageBox.Show(Me, ex.Message, "Edit Student", MessageBoxButtons.OK, MessageBoxIcon.Warning)
+        End Try
     End Sub
 End Class
