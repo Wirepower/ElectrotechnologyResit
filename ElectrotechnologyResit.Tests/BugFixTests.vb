@@ -435,6 +435,30 @@ Public Class LookupCacheTests
     End Sub
 
     <Fact>
+    Public Sub Only_connection_settings_need_a_restart()
+        Dim loaded = SampleRestart()
+        Assert.False(SettingsRestart.NeedsRestart(loaded, SampleRestart()))
+        Assert.True(SettingsRestart.NeedsRestart(loaded, SampleRestart(dataSource:="SharePoint")))
+        Assert.True(SettingsRestart.NeedsRestart(loaded, SampleRestart(siteUrl:="https://other.sharepoint.com/sites/A")))
+        Assert.True(SettingsRestart.NeedsRestart(loaded, SampleRestart(clientId:="other-client")))
+        Assert.True(SettingsRestart.NeedsRestart(loaded, SampleRestart(tenantId:="tenant-id")))
+        Assert.True(SettingsRestart.NeedsRestart(loaded, SampleRestart(useSitesSelected:=True)))
+        Assert.True(SettingsRestart.NeedsRestart(loaded, SampleRestart(bookingsList:="OtherBookings")))
+        Assert.True(SettingsRestart.NeedsRestart(loaded, SampleRestart(studentsList:="OtherStudents")))
+        Assert.True(SettingsRestart.NeedsRestart(loaded, SampleRestart(teachersList:="OtherTeachers")))
+        Assert.True(SettingsRestart.NeedsRestart(loaded, SampleRestart(unitsList:="OtherUnits")))
+        Assert.True(SettingsRestart.NeedsRestart(loaded, SampleRestart(signatureLibrary:="OtherSignatures")))
+        Assert.False(SettingsRestart.NeedsRestart(loaded, SampleRestart(bookingsList:="  ")))
+        Assert.False(SettingsRestart.NeedsRestart(loaded, SampleRestart(tenantId:="")))
+        Assert.False(SettingsRestart.NeedsRestart(loaded, SampleRestart(dataSource:="sample")))
+        Assert.False(SettingsRestart.NeedsRestart(loaded, SampleRestart(siteUrl:="  https://tenant.sharepoint.com/sites/A  ")))
+    End Sub
+
+    Private Shared Function SampleRestart(Optional dataSource As String = "Sample", Optional siteUrl As String = "https://tenant.sharepoint.com/sites/A", Optional clientId As String = "client", Optional tenantId As String = "common", Optional useSitesSelected As Boolean = False, Optional bookingsList As String = "ResitBookings", Optional studentsList As String = "Students", Optional teachersList As String = "Teachers", Optional unitsList As String = "Units", Optional signatureLibrary As String = "EmailSignature") As SettingsRestartSnapshot
+        Return SettingsRestartSnapshot.Capture(dataSource, siteUrl, clientId, tenantId, useSitesSelected, bookingsList, studentsList, teachersList, unitsList, signatureLibrary)
+    End Function
+
+    <Fact>
     Public Sub Closing_settings_asks_before_discarding_other_changes()
         Assert.Equal(SettingsCloseAction.CloseWithoutSaving, SettingsClosePrompt.Decide(False, SettingsCloseAnswer.Cancel))
         Assert.Equal(SettingsCloseAction.SaveAndExit, SettingsClosePrompt.Decide(True, SettingsCloseAnswer.Yes))

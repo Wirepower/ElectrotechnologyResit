@@ -10,6 +10,7 @@ Public Class Settings
     Private _dirty As Boolean
     Private _saving As Boolean
     Private _wired As Boolean
+    Private _loadedRestart As SettingsRestartSnapshot
 
     Private Sub Settings_Load(sender As Object, e As EventArgs) Handles MyBase.Load
         BuildDataSourceControls()
@@ -147,8 +148,24 @@ Public Class Settings
         CheckBoxShowPullFromBookingsButton.Checked = My.Settings.ShowPullFromBookingsButton
         CheckBoxShowLookupLabels.Checked = My.Settings.ShowTeacherEmailAndUnitName
         _loading = False
+        _loadedRestart = CurrentRestartSnapshot()
         If Not _wired Then _dirty = False
     End Sub
+
+    Private Function CurrentRestartSnapshot() As SettingsRestartSnapshot
+        Dim source = If(ComboBoxDataSource IsNot Nothing AndAlso ComboBoxDataSource.SelectedIndex = 1, "SharePoint", "Sample")
+        Return SettingsRestartSnapshot.Capture(
+            source,
+            TextBoxSiteUrl.Text,
+            TextBoxGraphClientId.Text,
+            TextBoxGraphTenant.Text,
+            CheckBoxSitesSelected.Checked,
+            TextBoxBookingsList.Text,
+            TextBoxStudentsList.Text,
+            TextBoxTeachersList.Text,
+            TextBoxUnitsList.Text,
+            TextBoxSignatureLibrary.Text)
+    End Function
 
     Private Sub LookupLabelsChanged(sender As Object, e As EventArgs)
         If _loading OrElse CheckBoxShowLookupLabels Is Nothing Then Return
@@ -316,6 +333,7 @@ Public Class Settings
     End Sub
 
     Private Sub SaveAndExit()
+        Dim restart = SettingsRestart.NeedsRestart(_loadedRestart, CurrentRestartSnapshot())
         _dirty = False
         _saving = True
         ApplySharePointFields()
@@ -328,9 +346,14 @@ Public Class Settings
         My.Settings.ShowPullFromBookingsButton = CheckBoxShowPullFromBookingsButton.Checked
         My.Settings.ShowTeacherEmailAndUnitName = CheckBoxShowLookupLabels.Checked
         My.Settings.Save()
+        _loadedRestart = CurrentRestartSnapshot()
         Me.Hide()
-        MessageBox.Show("Settings Saved, Please Restart Application", "Application Restart", MessageBoxButtons.OK)
-        Application.Exit()
+        If restart Then
+            MessageBox.Show("Settings Saved, Please Restart Application", "Application Restart", MessageBoxButtons.OK)
+            Application.Exit()
+        Else
+            MessageBox.Show("Settings saved", "Settings", MessageBoxButtons.OK, MessageBoxIcon.Information)
+        End If
     End Sub
 
     Private Sub Button2_Click(sender As Object, e As EventArgs) Handles Button2.Click
