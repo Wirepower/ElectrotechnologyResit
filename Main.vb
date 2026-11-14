@@ -20,7 +20,8 @@ Public Class Main
 
         InitializeComponent()
         Label5.Text = AppVersion.DisplayText
-        Text = "Electrotechnology Resit — " & AppVersion.DisplayText
+        Text = "Electrotechnology Resit v" & AppVersion.VersionString
+        Label3.Text = "Created by Frank Offer, Contact me via email on Frank.Offer@vu.edu.au, " & AppVersion.DisplayText
     End Sub
     Private Sub Button7_Click(sender As Object, e As EventArgs) Handles Button7.Click
         Me.Close()
@@ -39,11 +40,13 @@ Public Class Main
     End Sub
 
     Private Async Sub Main_Load(sender As Object, e As EventArgs) Handles MyBase.Load
+        DateTimePicker1.Value = MelbourneCalendar.Today()
         If AppServices.IsSampleMode Then
             Try
                 AppServices.ConfigureFromSettings(Function() CType(Me, IWin32Window))
                 ApplySampleDataCaption()
                 Me.Cursor = Cursors.WaitCursor
+                Await PurgeOldResitsAsync()
                 Await ReloadBookingsAsync(applyDateFilter:=True)
                 ApplyPullFromBookingsButtonVisibility()
                 _ready = True
@@ -88,6 +91,8 @@ Public Class Main
 
         Try
             Me.Cursor = Cursors.WaitCursor
+            Await QualificationCatalog.EnsureSeedAsync(AppServices.Qualifications, AppServices.Units)
+            Await PurgeOldResitsAsync()
             Await ReloadBookingsAsync(applyDateFilter:=True)
             ApplyPullFromBookingsButtonVisibility()
             ApplySampleDataCaption()
@@ -100,18 +105,24 @@ Public Class Main
     End Sub
 
     Public Sub ApplySampleDataCaption()
-        Dim baseTitle = "Electrotechnology Resit — " & AppVersion.DisplayText
-        If AppServices.IsSampleMode Then
-            Text = baseTitle & " — SAMPLE DATA"
-            statusLabel.AutoSize = True
-            statusLabel.MaximumSize = New Size(1100, 0)
-            statusLabel.Text = "SAMPLE DATA — fictional bookings only. Outlook will display teacher emails and will not send them."
-            statusLabel.ForeColor = Color.DarkRed
-        Else
-            Text = baseTitle
-            statusLabel.Text = ""
-        End If
+        Text = "Electrotechnology Resit v" & AppVersion.VersionString
+        Label2.Text = Text
+        LabelSampleBadge.Visible = AppServices.IsSampleMode
     End Sub
+
+    Private Async Function PurgeOldResitsAsync() As Task
+        If AppServices.Bookings Is Nothing Then Return
+        Try
+            Dim removed = Await AppServices.Bookings.DeleteOnOrBeforeAsync(OldResitPurge.Cutoff(MelbourneCalendar.Today()))
+            If removed > 0 Then
+                Dim message = OldResitPurge.Message(removed)
+                Trace.WriteLine(message)
+                statusLabel.Text = message
+            End If
+        Catch ex As Exception
+            MessageBox.Show(Me, "Could not remove old resits. " & ex.Message, "Old resits", MessageBoxButtons.OK, MessageBoxIcon.Warning)
+        End Try
+    End Function
 
     Private Async Function OfferSchemaRepairAsync() As Task
         Try
@@ -151,6 +162,7 @@ Public Class Main
             _bindingGrid = False
         End Try
         If applyDateFilter Then FilterData()
+        UpdateStudentCount()
         Await RefreshUnitListsAsync()
     End Function
 
@@ -206,18 +218,10 @@ Public Class Main
     End Sub
 
     Private Async Sub Button5_Click(sender As Object, e As EventArgs) Handles Button5.Click
-        Dim imageData As Byte() = Nothing
-        Try
-            imageData = Await AppServices.Signature.GetCurrentImageAsync()
-        Catch ex As Exception
-            MessageBox.Show("Error: " & ex.Message)
-            Return
-        End Try
-
         Dim displayMail = CheckBox1.Checked
         Dim sendMail = CheckBox2.Checked
         If AppServices.IsSampleMode Then
-            Dim proceed = MessageBox.Show(
+            Dim proceed = MessageBox.Show(Me,
                 "SAMPLE DATA. The teacher addresses are fictional (@example.com)." & vbCrLf & vbCrLf &
                 "Outlook will display each message so you can check it. Nothing will be sent.",
                 "Sample data",
@@ -232,17 +236,32 @@ Public Class Main
             _emailModeGuard = False
         End If
 
-        Dim outlookApp As Object = OutlookInterop.TryCreateOutlookApplication()
-        If outlookApp Is Nothing Then
-            MessageBox.Show("Microsoft Outlook could not be started. Install Outlook (desktop) and try again.", "Outlook required", MessageBoxButtons.OK, MessageBoxIcon.Warning)
+        OfficeStep("Email: loading bookings")
+        Dim bookings As IReadOnlyList(Of ResitBooking)
+        Try
+            bookings = Await AppServices.Bookings.GetByDateAsync(DateTimePicker1.Value.Date)
+        Catch ex As Exception
+            MessageBox.Show(Me, ex.Message, "Email teachers", MessageBoxButtons.OK, MessageBoxIcon.Error)
+            Return
+        End Try
+        If bookings Is Nothing OrElse bookings.Count = 0 Then
+            MessageBox.Show(Me, "There are no students for this resit night.", "Email teachers", MessageBoxButtons.OK, MessageBoxIcon.Information)
             Return
         End If
 
+        Dim imageData As Byte() = Nothing
+        OfficeStep("Email: loading signature")
         Try
-            Dim bookings = Await AppServices.Bookings.GetByDateAsync(DateTimePicker1.Value.Date)
-            For Each booking In bookings
-                Dim formattedResitDate = EnglishOrdinal.FormatResitNight(booking.ResitDate)
-                Dim body As String = "Dear " & booking.TeacherName & "," & vbCrLf & vbCrLf & "<br>" &
+            imageData = Await AppServices.Signature.GetCurrentImageAsync()
+        Catch ex As Exception
+            OfficeStep("Email: signature unavailable")
+            imageData = Nothing
+        End Try
+
+        Dim messages As New List(Of (Address As String, Subject As String, Html As String))
+        For Each booking In bookings
+            Dim formattedResitDate = EnglishOrdinal.FormatResitNight(booking.ResitDate)
+            Dim body As String = "Dear " & booking.TeacherName & "," & vbCrLf & vbCrLf & "<br>" &
                 "This is a reminder about an upcoming resit on " & formattedResitDate & ".<br>" &
                 vbCrLf & vbCrLf &
                 "Please see below for your applicable student:" & vbCrLf & vbCrLf & "<br><br>" &
@@ -255,20 +274,66 @@ Public Class Main
                 "Please monitor this student and update their results upon resit completion,<br><br>" & vbCrLf & vbCrLf &
                 "Thank you," & vbCrLf & "<br>" &
                 "Electrotechnology.Admin Team"
+            Dim imgHtml = ""
+            If imageData IsNot Nothing AndAlso imageData.Length > 0 Then
+                imgHtml = "<br><img src='data:image/jpeg;base64," & Convert.ToBase64String(imageData) & "' width='90%'>"
+            End If
+            Dim html = "<html><body><font color='black'>" & body & "</font></body>" & imgHtml & "</html>"
+            Dim subject = "One of your students has been booked into a resit night on " & formattedResitDate
+            messages.Add((booking.TeacherEmail, subject, html))
+        Next
 
-                Dim imgHtml As String = ""
-                If imageData IsNot Nothing AndAlso imageData.Length > 0 Then
-                    imgHtml = "<br><img src='data:image/jpeg;base64," & Convert.ToBase64String(imageData) & "' width='90%'>"
+        Button5.Enabled = False
+        UseWaitCursor = True
+        Dim previousStatus = statusLabel.Text
+        statusLabel.Text = "Waiting for Outlook..."
+        Dim session As OfficeSession = Nothing
+        Using dialog As New OfficeWaitDialog("Waiting for Outlook...")
+            dialog.Show(Me)
+            Try
+                session = Await OfficeSession.TryAttachAsync("Outlook.Application", TimeSpan.FromSeconds(40), dialog.Token, AddressOf OfficeStep)
+                If session Is Nothing Then
+                    If Not dialog.Token.IsCancellationRequested Then
+                        MessageBox.Show(Me, "Outlook didn't start. Open Outlook, then try again.", "Outlook", MessageBoxButtons.OK, MessageBoxIcon.Warning)
+                    End If
+                Else
+                Dim index = 0
+                For Each message In messages
+                    If dialog.Token.IsCancellationRequested Then Exit For
+                    index += 1
+                    statusLabel.Text = "Showing message " & index.ToString() & " of " & messages.Count.ToString()
+                    OfficeStep("Email: message " & index.ToString() & " of " & messages.Count.ToString())
+                    Dim address = message.Address
+                    Dim subject = message.Subject
+                    Dim html = message.Html
+                    Dim show = displayMail
+                    Dim send = sendMail
+                    Dim result = Await session.InvokeAsync(Sub() OutlookInterop.CreateDisplayOrSendMail(session.Application, address, subject, html, "Electrotechnology.admin@vu.edu.au", show, send), TimeSpan.FromSeconds(45), dialog.Token)
+                    If result.Kind = OfficeWaitKind.TimedOut Then
+                        MessageBox.Show(Me, "Outlook stopped responding. Open Outlook, then try again.", "Outlook", MessageBoxButtons.OK, MessageBoxIcon.Warning)
+                        Exit For
+                    End If
+                    If result.Problem IsNot Nothing Then
+                        MessageBox.Show(Me, result.Problem.Message, "Email teachers", MessageBoxButtons.OK, MessageBoxIcon.Error)
+                        Exit For
+                    End If
+                Next
+                OfficeStep("Email: finished")
                 End If
-                Dim html As String = "<html><body><font color='black'>" & body & "</font></body>" & imgHtml & "</html>"
-                Dim subject As String = "One of your students has been booked into a resit night on " & formattedResitDate
-                OutlookInterop.CreateDisplayOrSendMail(outlookApp, booking.TeacherEmail, subject, html, "Electrotechnology.admin@vu.edu.au", displayMail, sendMail)
-            Next
-        Catch ex As Exception
-            MessageBox.Show("Error: " & ex.Message)
-        Finally
-            Marshal.FinalReleaseComObject(outlookApp)
-        End Try
+            Catch ex As Exception
+                MessageBox.Show(Me, ex.Message, "Email teachers", MessageBoxButtons.OK, MessageBoxIcon.Error)
+            Finally
+                dialog.Close()
+                Button5.Enabled = True
+                UseWaitCursor = False
+                statusLabel.Text = previousStatus
+            End Try
+        End Using
+        If session IsNot Nothing Then Await session.ReleaseAsync()
+    End Sub
+
+    Private Shared Sub OfficeStep(stepName As String)
+        OfficeStepLog.Write(IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "ElectrotechnologyResit"), stepName)
     End Sub
 
     Private Async Sub DateTimePicker1_ValueChanged(sender As Object, e As EventArgs) Handles DateTimePicker1.ValueChanged
@@ -283,6 +348,21 @@ Public Class Main
         Dim startText = selectedDate.ToString("MM/dd/yyyy", CultureInfo.InvariantCulture)
         Dim endText = selectedDate.AddDays(1).ToString("MM/dd/yyyy", CultureInfo.InvariantCulture)
         dataTable.DefaultView.RowFilter = "[Resit date] >= #" & startText & "# AND [Resit date] < #" & endText & "#"
+        UpdateStudentCount()
+    End Sub
+
+    Private Sub UpdateStudentCount()
+        Dim count = 0
+        Dim table = TryCast(DataGridView1.DataSource, DataTable)
+        If table IsNot Nothing Then
+            If _keepDateFilter Then
+                count = table.DefaultView.Count
+                LabelStudentCount.Text = count.ToString() & " students for " & DateTimePicker1.Value.ToString("dd/MM/yyyy")
+            Else
+                count = table.Rows.Count
+                LabelStudentCount.Text = count.ToString() & " students (all dates)"
+            End If
+        End If
     End Sub
 
     Private Async Sub Button8_Click(sender As Object, e As EventArgs) Handles Button8.Click
@@ -309,7 +389,7 @@ Public Class Main
                 Next
 
                 ' Define the desired order of column headers
-                Dim desiredOrderHeaders As String() = {"Student ID", "Student Firstname", "Surname", "Email", "Unit", "Unit Name", "Blockgroup", "AllocatedTeacher", "AllocatedTeacher email", "AttemptNo", "Resit date", "EnergyspaceClassCreated", "EnergyspaceAssessmentBooked", "status", "Attendance", "Mark", "Pass/Fail"}
+                Dim desiredOrderHeaders As String() = {"Student ID", "Student Firstname", "Surname", "Email", "Unit", "QualificationCode", "Unit Name", "Blockgroup", "AllocatedTeacher", "AllocatedTeacher email", "AttemptNo", "Resit date", "EnergyspaceClassCreated", "EnergyspaceAssessmentBooked", "status", "Attendance", "Mark", "Pass/Fail"}
 
                 ' Sort the mapping based on the desired order of column headers
                 Dim sortedMap = headerIndexMap.OrderBy(Function(x) Array.IndexOf(desiredOrderHeaders, x.Key))
@@ -492,20 +572,6 @@ Public Class Main
         ExportToExcel(DataGridView1, DateTimePicker1.Value, columnsToHide, columnWidths)
     End Sub
 
-    Private Async Sub Button10_Click(sender As Object, e As EventArgs) Handles Button10.Click
-        If MessageBox.Show("Delete all resit records older than 14 days? This cannot be undone.", "Confirm delete", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) <> DialogResult.Yes Then
-            Return
-        End If
-        Try
-            Await AppServices.Bookings.DeleteOnOrBeforeAsync(MelbourneCalendar.Today().AddDays(-14))
-        Catch ex As Exception
-            MessageBox.Show("Error: " & ex.Message)
-            Return
-        End Try
-        Await UpdateDataGridView()
-        MessageBox.Show("All resit records older than 14 days have been deleted.", "Done", MessageBoxButtons.OK, MessageBoxIcon.Information)
-    End Sub
-
     Private Async Function RefreshUnitListsAsync() As Task
         If AppServices.Bookings Is Nothing Then Return
         Dim flags As IReadOnlyList(Of UnitNightFlags)
@@ -515,13 +581,23 @@ Public Class Main
             MessageBox.Show("Error retrieving data from SharePoint: " & ex.Message)
             Return
         End Try
+        Dim titles As New Dictionary(Of String, String)(StringComparer.OrdinalIgnoreCase)
+        If AppServices.Units IsNot Nothing Then
+            For Each unit In Await AppServices.Units.GetAllAsync()
+                Dim code = If(unit.UnitCode, "").Trim()
+                If code.Length > 0 AndAlso Not titles.ContainsKey(code) Then titles(code) = If(unit.UnitTitle, "")
+            Next
+        End If
         _loadingUnitLists = True
         Try
             ListView1.Items.Clear()
             ListView2.Items.Clear()
             For Each unit In flags
+                Dim name = If(titles.ContainsKey(unit.UnitCode), titles(unit.UnitCode), "")
                 Dim created As New ListViewItem(unit.UnitCode)
+                created.SubItems.Add(name)
                 Dim booked As New ListViewItem(unit.UnitCode)
+                booked.SubItems.Add(name)
                 ListView1.Items.Add(created)
                 ListView2.Items.Add(booked)
                 created.Checked = unit.ClassCreated
@@ -530,8 +606,18 @@ Public Class Main
         Finally
             _loadingUnitLists = False
         End Try
+        UpdateTickCount(ListView1, LabelClassCount)
+        UpdateTickCount(ListView2, LabelBookedCount)
         UpdateResitExportButtonsVisibility()
     End Function
+
+    Private Shared Sub UpdateTickCount(list As ListView, label As Label)
+        Dim ticked = 0
+        For Each item As ListViewItem In list.Items
+            If item.Checked Then ticked += 1
+        Next
+        label.Text = ticked.ToString() & " of " & list.Items.Count.ToString() & " units ticked"
+    End Sub
 
     Private Async Sub ListView1_ItemChecked(sender As Object, e As ItemCheckedEventArgs) Handles ListView1.ItemChecked
         If _loadingUnitLists OrElse _bindingGrid Then Return
@@ -544,6 +630,7 @@ Public Class Main
             RevertCheck(e.Item)
             MessageBox.Show("An error occurred: " & ex.Message)
         End Try
+        UpdateTickCount(ListView1, LabelClassCount)
         UpdateResitExportButtonsVisibility()
     End Sub
 
@@ -573,6 +660,7 @@ Public Class Main
             RevertCheck(e.Item)
             MessageBox.Show("An error occurred: " & ex.Message)
         End Try
+        UpdateTickCount(ListView2, LabelBookedCount)
         UpdateResitExportButtonsVisibility()
     End Sub
 
@@ -620,13 +708,32 @@ Public Class Main
         End Try
     End Sub
 
-    ''' <summary>Builds lines like CD0044-RESIT-CERTIII-2026 from ListView1 (Energyspace Class Created) only.</summary>
-    Private Function BuildResitClassGroupLines(listView As ListView, certYear As Integer) As String
-        Dim ticked As New List(Of String)
+    ''' <summary>Builds abbreviation-RESIT-suffix-year from Class Created ticks. The suffix and abbreviation come from the booking's qualification.</summary>
+    Private Async Function BuildResitClassGroupLinesAsync(listView As ListView, certYear As Integer) As Task(Of String)
+        Dim qualifications = If(AppServices.Qualifications Is Nothing, Nothing, Await AppServices.Qualifications.GetAllAsync())
+        Dim units = If(AppServices.Units Is Nothing, Nothing, Await AppServices.Units.GetAllAsync())
+        Dim bookings = If(AppServices.Bookings Is Nothing, Nothing, Await AppServices.Bookings.GetByDateAsync(DateTimePicker1.Value.Date))
+        Dim entries As New List(Of ClassGroupEntry)
         For Each item As ListViewItem In listView.Items
-            If item.Checked Then ticked.Add(item.Text)
+            If Not item.Checked Then Continue For
+            Dim code = item.Text
+            Dim package = ""
+            If bookings IsNot Nothing Then
+                Dim row = bookings.FirstOrDefault(Function(booking) String.Equals(booking.UnitCode, code, StringComparison.OrdinalIgnoreCase) AndAlso Not String.IsNullOrWhiteSpace(booking.QualificationCode))
+                If row IsNot Nothing Then package = row.QualificationCode
+            End If
+            If package.Length = 0 Then package = QualificationSelection.ForNewBooking(code, units, qualifications)
+            Dim qualification As QualificationRecord = Nothing
+            If qualifications IsNot Nothing Then
+                qualification = qualifications.FirstOrDefault(Function(itemQualification) String.Equals(itemQualification.QualificationCode, package, StringComparison.OrdinalIgnoreCase))
+            End If
+            entries.Add(New ClassGroupEntry With {
+                .UnitCode = code,
+                .ClassGroupSuffix = If(qualification Is Nothing, "", qualification.ClassGroupSuffix),
+                .Rules = If(qualification Is Nothing, New List(Of AbbreviationRule)(), qualification.Rules)
+            })
         Next
-        Return ResitClassGroups.Build(ticked, certYear)
+        Return ResitClassGroups.Build(entries, certYear)
     End Function
 
     ''' <summary>
@@ -634,7 +741,7 @@ Public Class Main
     ''' {{PASSWORD_LINE}} / {{PC_LOGIN_PASSWORD}} = PC monthly (Settings). {{MONTHLY_PASSWORD}} removed (replaced empty if present in old templates).
     ''' {{USERNAME_LINE}} optional.
     ''' </summary>
-    Private Sub Button12_Click(sender As Object, e As EventArgs) Handles Button12.Click
+    Private Async Sub Button12_Click(sender As Object, e As EventArgs) Handles Button12.Click
         Dim dailyPwd As String = Interaction.InputBox(
             "Today's daily Energyspace password (changes each day).",
             "Daily Energyspace password",
@@ -662,15 +769,62 @@ Public Class Main
         If sfd.ShowDialog(Me) <> DialogResult.OK Then Return
 
         Dim certYear = DateTimePicker1.Value.Year
-        Dim classGroupsBlock = BuildResitClassGroupLines(ListView1, certYear)
+        Dim classGroupsBlock = Await BuildResitClassGroupLinesAsync(ListView1, certYear)
         Dim resitNightLong As String = DateTimePicker1.Value.ToString("D")
+        Dim savedPath = sfd.FileName
 
-        Dim wordApp As Object = WordDocInterop.TryCreateWordApplication()
-        If wordApp Is Nothing Then
-            MessageBox.Show("Microsoft Word is required. Install desktop Word and try again.", "Word required", MessageBoxButtons.OK, MessageBoxIcon.Warning)
-            Return
-        End If
+        Button12.Enabled = False
+        UseWaitCursor = True
+        Dim previousStatus = statusLabel.Text
+        statusLabel.Text = "Waiting for Word..."
+        Dim session As OfficeSession = Nothing
+        Using dialog As New OfficeWaitDialog("Waiting for Word...")
+            dialog.Show(Me)
+            Try
+                OfficeStep("Word: waiting to attach")
+                session = Await OfficeSession.TryAttachAsync("Word.Application", TimeSpan.FromSeconds(40), dialog.Token, AddressOf OfficeStep)
+                If session Is Nothing Then
+                    If Not dialog.Token.IsCancellationRequested Then
+                        MessageBox.Show(Me, "Word didn't start. Open Word, then try again.", "Word", MessageBoxButtons.OK, MessageBoxIcon.Warning)
+                    End If
+                Else
+                Dim result = Await session.InvokeAsync(
+                    Sub() FillLoginSheet(session.Application, templatePath, savedPath, resitNightLong, classGroupsBlock, dailyPwd, pcLoginMonthly),
+                    TimeSpan.FromSeconds(45),
+                    dialog.Token)
+                If result.Kind = OfficeWaitKind.TimedOut Then
+                    MessageBox.Show(Me, "Word didn't start. Open Word, then try again.", "Word", MessageBoxButtons.OK, MessageBoxIcon.Warning)
+                ElseIf result.Problem IsNot Nothing Then
+                    MessageBox.Show(Me, "Word could not complete the document: " & result.Problem.Message, "Word", MessageBoxButtons.OK, MessageBoxIcon.Error)
+                Else
+                OfficeStep("Word: document saved")
+                If My.Settings.ResitLoginOpenDocumentAfterSave Then
+                    MessageBox.Show(Me, "Document saved:" & vbCrLf & savedPath, "Resit login sheet", MessageBoxButtons.OK, MessageBoxIcon.Information)
+                    TryOpenSavedResitLoginDocument(savedPath)
+                Else
+                    Dim openNow = MessageBox.Show(Me,
+                        "Document saved:" & vbCrLf & savedPath & vbCrLf & vbCrLf & "Open it now?",
+                        "Resit login sheet",
+                        MessageBoxButtons.YesNo,
+                        MessageBoxIcon.Information,
+                        MessageBoxDefaultButton.Button1)
+                    If openNow = DialogResult.Yes Then TryOpenSavedResitLoginDocument(savedPath)
+                End If
+                End If
+                End If
+            Catch ex As Exception
+                MessageBox.Show(Me, "Word could not complete the document: " & ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error)
+            Finally
+                dialog.Close()
+                Button12.Enabled = True
+                UseWaitCursor = False
+                statusLabel.Text = previousStatus
+            End Try
+        End Using
+        If session IsNot Nothing Then Await session.ReleaseAsync()
+    End Sub
 
+    Private Sub FillLoginSheet(wordApp As Object, templatePath As String, savedPath As String, resitNightLong As String, classGroupsBlock As String, dailyPwd As String, pcLoginMonthly As String)
         wordApp.Visible = False
         Dim doc As Object = Nothing
         Try
@@ -683,32 +837,13 @@ Public Class Main
             WordDocInterop.ReplaceAllInDocument(doc, "{{PASSWORD_LINE}}", "Password: " & pcLoginMonthly)
             WordDocInterop.ReplaceAllInDocument(doc, "{{PC_LOGIN_PASSWORD}}", pcLoginMonthly)
             ApplyLeaVuStamp(doc)
-
             Try
-                doc.SaveAs2(sfd.FileName)
+                doc.SaveAs2(savedPath)
             Catch
-                doc.SaveAs(sfd.FileName)
+                doc.SaveAs(savedPath)
             End Try
-
             doc.Close(0)
             doc = Nothing
-            Dim savedPath = sfd.FileName
-            If My.Settings.ResitLoginOpenDocumentAfterSave Then
-                MessageBox.Show("Document saved:" & vbCrLf & savedPath, "Resit login sheet", MessageBoxButtons.OK, MessageBoxIcon.Information)
-                TryOpenSavedResitLoginDocument(savedPath)
-            Else
-                Dim openNow = MessageBox.Show(
-                    "Document saved:" & vbCrLf & savedPath & vbCrLf & vbCrLf & "Open it now?",
-                    "Resit login sheet",
-                    MessageBoxButtons.YesNo,
-                    MessageBoxIcon.Information,
-                    MessageBoxDefaultButton.Button1)
-                If openNow = DialogResult.Yes Then
-                    TryOpenSavedResitLoginDocument(savedPath)
-                End If
-            End If
-        Catch ex As Exception
-            MessageBox.Show("Word could not complete the document: " & ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error)
         Finally
             If doc IsNot Nothing Then
                 Try
@@ -717,7 +852,6 @@ Public Class Main
                 End Try
                 Marshal.FinalReleaseComObject(doc)
             End If
-            WordDocInterop.QuitWord(wordApp)
         End Try
     End Sub
 

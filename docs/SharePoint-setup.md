@@ -86,6 +86,7 @@ The grid shows these columns, in this order. SharePoint display names match them
 | --- | --- | --- | --- | --- |
 | StudentID | Student ID | Single line of text | Yes | Yes |
 | Unit | Unit | Single line of text | | |
+| QualificationCode | QualificationCode | Single line of text | Yes | |
 | ResitDate | Resit date | Date only | Yes | |
 | Blockgroup | Blockgroup | Single line of text | | |
 | AllocatedTeacher | AllocatedTeacher | Single line of text | | |
@@ -130,8 +131,26 @@ Search looks up one student with `fields/StudentID eq '...'`. It does not downlo
 
 | Internal name | Display name | Type | Index | Unique |
 | --- | --- | --- | --- | --- |
-| UnitCode | Unit Code | Single line of text | Yes | Yes |
+| UnitCode | Unit Code | Single line of text | Yes | |
 | UnitTitle | Unit Title | Single line of text | | |
+| QualificationCode | QualificationCode | Single line of text | Yes | |
+
+Unit Code is indexed and is not unique. The same unit code can belong to a later qualification. A site created by an older build may still have Enforce unique values turned on for Unit Code. Turn that off before adding a second package that reuses a code. The app does not remove that setting.
+
+### Qualifications (generic list)
+
+| Internal name | Display name | Type | Index | Unique |
+| --- | --- | --- | --- | --- |
+| QualificationCode | QualificationCode | Single line of text | Yes | Yes |
+| QualificationTitle | Qualification title | Single line of text | | |
+| Version | Version | Single line of text | | |
+| Status | Status | Single line of text | Yes | |
+| ClassGroupSuffix | ClassGroupSuffix | Single line of text | | |
+| AbbreviationRules | AbbreviationRules | Single line of text | | |
+
+Status is Draft, Active or Superseded. Only Active is offered for a new booking. Draft can be edited. Superseded stays readable. Abbreviation rules are one line each, `prefix UEECD=CD` or `override CODE=ABBR`, and must fit in 255 characters. The first-run setup creates this list and, when it is empty, adds UEE30820 as the Active package with its seven units.
+
+`QualificationCode` on a booking is written when the row is created and is not changed by a later package edit.
 
 ### EmailSignature (document library)
 
@@ -148,6 +167,8 @@ These are progress checkpoints for a unit on a night, not a per-student mark.
 - Export to Excel appears when either Energyspace list has a tick.
 - Resit Login Details appears only when at least one unit is ticked under Energyspace Class Created.
 - The Word {{CLASS_GROUPS}} block uses only those Class Created ticks. If none are ticked, the sheet says to tick units under Energyspace Class Created.
+- Each class-group line is `{abbreviation}-RESIT-{suffix}-{year}`. `RESIT`, the hyphens and the year from the date picker stay fixed. The abbreviation and the suffix (for example CERTIII) come from the qualification record, not from a hard-coded unit list.
+- On startup the app deletes bookings whose resit date is 14 or more days before today. There is no button and no prompt. The status line says `Removed N old resits` when N is greater than zero. Only that count is logged.
 - Pull from Bookings, if it is ever turned on, updates the booking but leaves both flags as they were.
 
 ## Import files

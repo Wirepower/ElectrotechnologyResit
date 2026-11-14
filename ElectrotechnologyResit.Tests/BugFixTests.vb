@@ -1,4 +1,5 @@
 Imports System.IO
+Imports System.Threading
 Imports ElectrotechnologyResit.Core
 Imports OfficeOpenXml
 Imports Xunit
@@ -171,7 +172,8 @@ Public Class BugFixTests
         Await store.UpsertAsync(SampleBooking("9000003", "UEECD0044", New Date(2026, 11, 1)), False)
         Await store.UpsertAsync(SampleBooking("9000004", "UEEEL0021", New Date(2026, 11, 3)), False)
         Await store.DeleteByStudentIdAsync("9000004")
-        Await store.DeleteOnOrBeforeAsync(New Date(2026, 10, 31))
+        Dim removed = Await store.DeleteOnOrBeforeAsync(New Date(2026, 10, 31))
+        Assert.Equal(2, removed)
         Dim left = Await store.GetBookingsAsync()
         Assert.Single(left)
         Assert.Equal("9000003", left(0).StudentId)
@@ -322,10 +324,15 @@ Public Class LookupCacheTests
 
     <Fact>
     Public Sub Word_class_groups_come_from_class_created_ticks_only()
-        Dim block = ResitClassGroups.Build(New String() {"UEEEL0021", "UEECD0044"}, 2026)
+        Dim rules = AbbreviationRules.Uee30820Rules()
+        Dim entries As New List(Of ClassGroupEntry) From {
+            New ClassGroupEntry With {.UnitCode = "UEEEL0021", .ClassGroupSuffix = "CERTIII", .Rules = rules},
+            New ClassGroupEntry With {.UnitCode = "UEECD0044", .ClassGroupSuffix = "CERTIII", .Rules = rules}
+        }
+        Dim block = ResitClassGroups.Build(entries, 2026)
         Assert.Equal("CD0044-RESIT-CERTIII-2026" & vbCrLf & "L0021-RESIT-CERTIII-2026", block)
-        Assert.Equal(UnitCodeAbbreviation.EmptySelectionText, ResitClassGroups.Build(Array.Empty(Of String)(), 2026))
-        Assert.Contains("Energyspace Class Created", UnitCodeAbbreviation.EmptySelectionText)
+        Assert.Equal(ResitClassGroups.EmptySelectionText, ResitClassGroups.Build(Array.Empty(Of ClassGroupEntry)(), 2026))
+        Assert.Contains("Energyspace Class Created", ResitClassGroups.EmptySelectionText)
         Assert.False(ResitOutputVisibility.ShowLoginSheet(False))
         Assert.True(ResitOutputVisibility.ShowLoginSheet(True))
         Assert.True(ResitOutputVisibility.ShowExcel(False, True))
@@ -342,9 +349,103 @@ Public Class LookupCacheTests
     <InlineData("UEEEL0021", "L0021")>
     <InlineData("UEEEL0025", "L0025")>
     Public Sub Cert_iii_resit_units_abbreviate_for_the_login_sheet(code As String, abbreviated As String)
-        Assert.Equal(abbreviated, UnitCodeAbbreviation.ToAbbreviatedClassCode(code))
-        Assert.Equal(abbreviated & "-RESIT-CERTIII-2026", ResitClassGroups.Build(New String() {code}, 2026))
+        Dim rules = AbbreviationRules.Uee30820Rules()
+        Assert.Equal(abbreviated, AbbreviationRules.Abbreviate(code, rules))
+        Dim entries As New List(Of ClassGroupEntry) From {
+            New ClassGroupEntry With {.UnitCode = code, .ClassGroupSuffix = "CERTIII", .Rules = rules}
+        }
+        Dim block = ResitClassGroups.Build(entries, 2026)
+        Assert.Equal(abbreviated & "-RESIT-CERTIII-2026", block)
     End Sub
+
+    <Fact>
+    Public Sub A_new_package_uses_its_own_suffix_and_does_not_need_a_hard_coded_unit_list()
+        Dim rules = AbbreviationRules.Parse("prefix UEECD=CD")
+        Dim entries As New List(Of ClassGroupEntry) From {
+            New ClassGroupEntry With {.UnitCode = "UEECD0099", .ClassGroupSuffix = "CERTIV", .Rules = rules}
+        }
+        Dim block = ResitClassGroups.Build(entries, 2027)
+        Assert.Equal("CD0099-RESIT-CERTIV-2027", block)
+        Assert.Equal("UEEZZ0001", AbbreviationRules.Abbreviate("UEEZZ0001", rules))
+    End Sub
+
+    <Fact>
+    Public Async Function A_booking_keeps_the_qualification_it_was_created_with() As Task
+        Dim store As New InMemoryResitStore()
+        Await store.UpsertAsync(New TeacherRecord With {.FullName = "Jordan Hale", .Email = "jordan.hale@example.com"})
+        Dim created = Await store.UpsertAsync(New ResitBooking With {
+            .StudentId = "9000001",
+            .TeacherName = "Jordan Hale",
+            .UnitCode = "UEECD0019",
+            .QualificationCode = "UEE30820",
+            .ResitDate = New Date(2026, 11, 14)
+        }, False)
+        Assert.Equal("UEE30820", created.Booking.QualificationCode)
+        Dim changed = created.Booking.Clone()
+        changed.QualificationCode = "UEE99999"
+        changed.UnitCode = "UEECD0020"
+        Dim updated = Await store.UpsertAsync(changed, False)
+        Assert.Equal("UEE30820", updated.Booking.QualificationCode)
+        Assert.Equal("UEECD0020", updated.Booking.UnitCode)
+    End Function
+
+    <Fact>
+    Public Sub Only_an_active_qualification_is_offered_for_a_new_booking()
+        Dim qualifications = New QualificationRecord() {
+            New QualificationRecord With {.QualificationCode = "UEE30820", .Status = QualificationStatus.Superseded},
+            New QualificationRecord With {.QualificationCode = "UEE40000", .Status = QualificationStatus.Draft},
+            New QualificationRecord With {.QualificationCode = "UEE50000", .Status = QualificationStatus.Active}
+        }
+        Dim units = New UnitRecord() {
+            New UnitRecord With {.UnitCode = "UEECD0019", .QualificationCode = "UEE30820"},
+            New UnitRecord With {.UnitCode = "UEECD0019", .QualificationCode = "UEE50000"}
+        }
+        Assert.Equal("UEE50000", QualificationSelection.ForNewBooking("UEECD0019", units, qualifications))
+        Assert.Equal("", QualificationSelection.ForNewBooking("UEECD0019", New UnitRecord() {units(0)}, qualifications))
+    End Sub
+
+    <Fact>
+    Public Sub Office_wait_times_out_and_can_be_cancelled_without_blocking()
+        Dim done As New ManualResetEventSlim(False)
+        Assert.Equal(OfficeWaitKind.TimedOut, OfficeCallWait.Wait(done, TimeSpan.FromMilliseconds(30), CancellationToken.None, TimeSpan.FromMilliseconds(5)))
+        Using cancelled As New CancellationTokenSource()
+            cancelled.Cancel()
+            Assert.Equal(OfficeWaitKind.Cancelled, OfficeCallWait.Wait(done, TimeSpan.FromSeconds(5), cancelled.Token, TimeSpan.FromMilliseconds(5)))
+        End Using
+        done.Set()
+        Assert.Equal(OfficeWaitKind.Completed, OfficeCallWait.Wait(done, TimeSpan.FromSeconds(5), CancellationToken.None, TimeSpan.FromMilliseconds(5)))
+    End Sub
+
+    <Fact>
+    Public Sub Office_step_log_drops_addresses_and_keeps_a_short_step()
+        Assert.Equal("Email: message 1 of 4", OfficeStepLog.Sanitise("Email: message 1 of 4"))
+        Dim cleaned = OfficeStepLog.Sanitise("Email message alex@example.com 9000001")
+        Assert.DoesNotContain("@", cleaned)
+        Assert.DoesNotContain("9000001", cleaned)
+    End Sub
+
+    <Fact>
+    Public Sub Graph_batch_delete_names_item_ids_only()
+        Dim body = GraphBatch.DeleteBody("site", "list", New String() {"11", "22"})
+        Assert.Contains("DELETE", body)
+        Assert.Contains("/items/11", body)
+        Assert.DoesNotContain("9000001", body)
+        Dim retry = GraphBatch.RetryIds("{""responses"":[{""id"":""11"",""status"":204},{""id"":""22"",""status"":429},{""id"":""33"",""status"":404}]}")
+        Assert.Equal("22", Assert.Single(retry))
+    End Sub
+
+    <Fact>
+    Public Async Function SharePoint_purge_filters_the_indexed_resit_date_and_returns_the_count() As Task
+        Dim client As New RecordingSharePointClient()
+        client.Items.Add(BookingItem("11", "2026-10-01"))
+        client.Items.Add(BookingItem("22", "2026-11-14"))
+        Dim service As New SharePointBookingService(client, SharePointListNames.Default(), New InMemoryResitStore())
+        Dim removed = Await service.DeleteOnOrBeforeAsync(New Date(2026, 10, 31))
+        Assert.Equal(1, removed)
+        Assert.Contains("ResitDate", client.LastFilter)
+        Assert.Contains("11", client.DeletedIds)
+        Assert.DoesNotContain("22", client.DeletedIds)
+    End Function
 
     Private Shared Function Booking(studentId As String, unitCode As String, night As Date) As ResitBooking
         Return New ResitBooking With {
@@ -360,6 +461,13 @@ Public Class LookupCacheTests
             .AttemptNo = "1",
             .ResitDate = night
         }
+    End Function
+
+    Private Shared Function BookingItem(itemId As String, resitDate As String) As ListItemRecord
+        Dim record As New ListItemRecord With {.Id = itemId, .Fields = New FieldBag()}
+        record.Fields.SetString(SharePointColumns.ResitDate, resitDate)
+        record.Fields.SetString(SharePointColumns.StudentId, "9000001")
+        Return record
     End Function
 
     Private Shared Function Item(studentId As String, given As String, family As String) As ListItemRecord
@@ -381,6 +489,7 @@ Public Class RecordingSharePointClient
     Public Property LastText As IDictionary(Of String, String)
     Public Property LastFlags As IDictionary(Of String, Boolean)
     Public Property Items As New List(Of ListItemRecord)
+    Public Property DeletedIds As New List(Of String)
 
     Public Function GetSiteAsync() As Task(Of SharePointSite) Implements ISharePointClient.GetSiteAsync
         Return Task.FromResult(New SharePointSite With {.Id = "site", .DisplayName = "Test"})
@@ -426,6 +535,12 @@ Public Class RecordingSharePointClient
     End Function
 
     Public Function DeleteItemAsync(listDisplayName As String, itemId As String) As Task Implements ISharePointClient.DeleteItemAsync
+        DeletedIds.Add(itemId)
+        Return Task.CompletedTask
+    End Function
+
+    Public Function DeleteItemsAsync(listDisplayName As String, itemIds As IReadOnlyList(Of String)) As Task Implements ISharePointClient.DeleteItemsAsync
+        If itemIds IsNot Nothing Then DeletedIds.AddRange(itemIds)
         Return Task.CompletedTask
     End Function
 

@@ -212,6 +212,7 @@ Namespace ElectrotechnologyResit.Core
                 {SharePointColumns.Email, If(booking.Email, "")},
                 {SharePointColumns.Unit, If(booking.UnitCode, "")},
                 {SharePointColumns.UnitName, If(booking.UnitName, "")},
+                {SharePointColumns.QualificationCode, If(booking.QualificationCode, "")},
                 {SharePointColumns.Blockgroup, If(booking.BlockGroup, "")},
                 {SharePointColumns.AllocatedTeacher, If(booking.TeacherName, "")},
                 {SharePointColumns.AllocatedTeacherEmail, If(booking.TeacherEmail, "")},
@@ -235,6 +236,7 @@ Namespace ElectrotechnologyResit.Core
                 .Email = fields.GetString(SharePointColumns.Email),
                 .UnitCode = fields.GetString(SharePointColumns.Unit),
                 .UnitName = fields.GetString(SharePointColumns.UnitName),
+                .QualificationCode = fields.GetString(SharePointColumns.QualificationCode),
                 .BlockGroup = fields.GetString(SharePointColumns.Blockgroup),
                 .TeacherName = fields.GetString(SharePointColumns.AllocatedTeacher),
                 .TeacherEmail = fields.GetString(SharePointColumns.AllocatedTeacherEmail),
@@ -257,6 +259,7 @@ Namespace ElectrotechnologyResit.Core
         Function CreateItemAsync(listDisplayName As String, textFields As IDictionary(Of String, String), flags As IDictionary(Of String, Boolean)) As Task(Of String)
         Function UpdateItemAsync(listDisplayName As String, itemId As String, textFields As IDictionary(Of String, String), flags As IDictionary(Of String, Boolean)) As Task
         Function DeleteItemAsync(listDisplayName As String, itemId As String) As Task
+        Function DeleteItemsAsync(listDisplayName As String, itemIds As IReadOnlyList(Of String)) As Task
         Function DownloadSignatureAsync(libraryDisplayName As String) As Task(Of Byte())
     End Interface
 
@@ -387,6 +390,26 @@ Namespace ElectrotechnologyResit.Core
                 .Method = "DELETE",
                 .Url = GraphUrls.Root & "/sites/" & Uri.EscapeDataString(siteId) & "/lists/" & Uri.EscapeDataString(listId) & "/items/" & Uri.EscapeDataString(itemId)
             }).ConfigureAwait(False)
+        End Function
+
+        Public Async Function DeleteItemsAsync(listDisplayName As String, itemIds As IReadOnlyList(Of String)) As Task Implements ISharePointClient.DeleteItemsAsync
+            Dim ids = If(itemIds, New List(Of String)()).Where(Function(id) Not String.IsNullOrWhiteSpace(id)).Distinct(StringComparer.Ordinal).ToList()
+            If ids.Count = 0 Then Return
+            Dim listId = Await ResolveListIdAsync(listDisplayName).ConfigureAwait(False)
+            Dim siteId = Await EnsureSiteIdAsync().ConfigureAwait(False)
+            Dim index = 0
+            While index < ids.Count
+                Dim chunk = ids.Skip(index).Take(GraphBatch.MaxRequests).ToList()
+                index += chunk.Count
+                Dim result = Await SendAsync(New GraphCall With {
+                    .Method = "POST",
+                    .Url = GraphUrls.Root & "/$batch",
+                    .JsonBody = GraphBatch.DeleteBody(siteId, listId, chunk)
+                }).ConfigureAwait(False)
+                For Each itemId In GraphBatch.RetryIds(result.Body)
+                    Await DeleteItemAsync(listDisplayName, itemId).ConfigureAwait(False)
+                Next
+            End While
         End Function
 
         Public Async Function DownloadSignatureAsync(libraryDisplayName As String) As Task(Of Byte()) Implements ISharePointClient.DownloadSignatureAsync

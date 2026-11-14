@@ -19,13 +19,23 @@ Namespace ElectrotechnologyResit.Core
                 Teacher("Avery Quinn", "avery.quinn@example.com")
             }
             Dim units = New List(Of UnitRecord) From {
-                Unit("UEECD0019", "Fabricate, assemble and dismantle utilities industry components"),
-                Unit("UEECD0020", "Fix and secure electrotechnology equipment"),
-                Unit("UEECD0046", "Solve problems in single path circuits"),
-                Unit("UEEEL0005", "Develop and connect electrical control circuits"),
-                Unit("UEEEL0012", "Install low voltage wiring, appliances, switchgear and associated accessories"),
-                Unit("UEEEL0021", "Solve problems in magnetic and electromagnetic devices"),
-                Unit("UEEEL0025", "Test and connect transformers")
+                Unit("UEE30820", "UEECD0019", "Fabricate, assemble and dismantle utilities industry components"),
+                Unit("UEE30820", "UEECD0020", "Fix and secure electrotechnology equipment"),
+                Unit("UEE30820", "UEECD0046", "Solve problems in single path circuits"),
+                Unit("UEE30820", "UEEEL0005", "Develop and connect electrical control circuits"),
+                Unit("UEE30820", "UEEEL0012", "Install low voltage wiring, appliances, switchgear and associated accessories"),
+                Unit("UEE30820", "UEEEL0021", "Solve problems in magnetic and electromagnetic devices"),
+                Unit("UEE30820", "UEEEL0025", "Test and connect transformers")
+            }
+            Dim qualifications = New List(Of QualificationRecord) From {
+                New QualificationRecord With {
+                    .QualificationCode = "UEE30820",
+                    .Title = "Certificate III in Electrotechnology Electrician",
+                    .Version = "1",
+                    .Status = QualificationStatus.Active,
+                    .ClassGroupSuffix = "CERTIII",
+                    .Rules = AbbreviationRules.Uee30820Rules()
+                }
             }
             Dim people = New List(Of StudentRecord) From {
                 Student("9000001", "Alex", "Nguyen", "BG-A"),
@@ -63,7 +73,8 @@ Namespace ElectrotechnologyResit.Core
                 .Bookings = bookings,
                 .Students = people,
                 .Teachers = teachers,
-                .Units = units
+                .Units = units,
+                .Qualifications = qualifications
             }
         End Function
 
@@ -71,8 +82,8 @@ Namespace ElectrotechnologyResit.Core
             Return New TeacherRecord With {.FullName = name, .Email = email}
         End Function
 
-        Private Shared Function Unit(code As String, title As String) As UnitRecord
-            Return New UnitRecord With {.UnitCode = code, .UnitTitle = title}
+        Private Shared Function Unit(qualificationCode As String, code As String, title As String) As UnitRecord
+            Return New UnitRecord With {.QualificationCode = qualificationCode, .UnitCode = code, .UnitTitle = title}
         End Function
 
         Private Shared Function Student(id As String, given As String, family As String, block As String) As StudentRecord
@@ -93,6 +104,7 @@ Namespace ElectrotechnologyResit.Core
                 .Email = person.PersonalEmail,
                 .UnitCode = unit.UnitCode,
                 .UnitName = unit.UnitTitle,
+                .QualificationCode = unit.QualificationCode,
                 .BlockGroup = person.BlockGroupCode,
                 .TeacherName = teacher.FullName,
                 .TeacherEmail = teacher.Email,
@@ -110,6 +122,7 @@ Namespace ElectrotechnologyResit.Core
         Public Property Students As List(Of StudentRecord)
         Public Property Teachers As List(Of TeacherRecord)
         Public Property Units As List(Of UnitRecord)
+        Public Property Qualifications As List(Of QualificationRecord)
     End Class
 
     ''' <summary>Local JSON store used when the data source is sample data. Not SharePoint.</summary>
@@ -118,6 +131,7 @@ Namespace ElectrotechnologyResit.Core
         Implements IStudentDirectory
         Implements ITeacherDirectory
         Implements IUnitDirectory
+        Implements IQualificationDirectory
         Implements ISignatureImageStore
 
         Private ReadOnly _memory As New InMemoryResitStore()
@@ -138,6 +152,9 @@ Namespace ElectrotechnologyResit.Core
             Else
                 Seed()
             End If
+            If Not File.Exists(QualificationsPath()) Then
+                QualificationCatalog.EnsureSeedAsync(Me, Me).GetAwaiter().GetResult()
+            End If
         End Sub
 
         Public Shared Function DefaultFolder() As String
@@ -146,7 +163,7 @@ Namespace ElectrotechnologyResit.Core
 
         Public Sub Reset(today As Date)
             _today = today.Date
-            For Each name In New String() {"bookings.json", "students.json", "teachers.json", "units.json", "signature.jpg"}
+            For Each name In New String() {"bookings.json", "students.json", "teachers.json", "units.json", "qualifications.json", "signature.jpg"}
                 Dim filePath = IO.Path.Combine(_folder, name)
                 If File.Exists(filePath) Then File.Delete(filePath)
             Next
@@ -180,10 +197,10 @@ Namespace ElectrotechnologyResit.Core
             Return task
         End Function
 
-        Public Function DeleteOnOrBeforeAsync(cutoff As Date) As Task Implements IBookingService.DeleteOnOrBeforeAsync
-            Dim task = _memory.DeleteOnOrBeforeAsync(cutoff)
+        Public Async Function DeleteOnOrBeforeAsync(cutoff As Date) As Task(Of Integer) Implements IBookingService.DeleteOnOrBeforeAsync
+            Dim removed = Await _memory.DeleteOnOrBeforeAsync(cutoff).ConfigureAwait(False)
             SaveBookings()
-            Return task
+            Return removed
         End Function
 
         Public Function SetEnergyspaceCreatedAsync(resitDate As Date, unitCode As String, value As Boolean) As Task Implements IBookingService.SetEnergyspaceCreatedAsync
@@ -240,12 +257,29 @@ Namespace ElectrotechnologyResit.Core
             Return kind
         End Function
 
+        Public Function GetAllAsync() As Task(Of IReadOnlyList(Of QualificationRecord)) Implements IQualificationDirectory.GetAllAsync
+            Return _memory.GetQualificationsAsync()
+        End Function
+
+        Public Function FindAsync(qualificationCode As String) As Task(Of QualificationRecord) Implements IQualificationDirectory.FindAsync
+            Return _memory.FindQualificationAsync(qualificationCode)
+        End Function
+
+        Public Async Function UpsertAsync(qualification As QualificationRecord) As Task(Of UpsertKind) Implements IQualificationDirectory.UpsertAsync
+            Dim kind = Await _memory.UpsertAsync(qualification).ConfigureAwait(False)
+            SaveQualifications()
+            Return kind
+        End Function
+
         Public Function GetCurrentImageAsync() As Task(Of Byte()) Implements ISignatureImageStore.GetCurrentImageAsync
             Return _memory.GetCurrentImageAsync()
         End Function
 
         Private Sub Seed()
             Dim snapshot = SampleDataCatalog.Build(_today)
+            For Each qualification In snapshot.Qualifications
+                _memory.UpsertAsync(qualification).GetAwaiter().GetResult()
+            Next
             For Each teacher In snapshot.Teachers
                 _memory.UpsertAsync(teacher).GetAwaiter().GetResult()
             Next
@@ -263,10 +297,14 @@ Namespace ElectrotechnologyResit.Core
         End Sub
 
         Private Sub Load()
+            Dim qualifications = ReadList(Of QualificationRecord)(QualificationsPath())
             Dim teachers = ReadList(Of TeacherRecord)(TeachersPath())
             Dim units = ReadList(Of UnitRecord)(UnitsPath())
             Dim students = ReadList(Of StudentRecord)(StudentsPath())
             Dim bookings = ReadList(Of ResitBooking)(BookingsPath())
+            For Each qualification In qualifications
+                _memory.UpsertAsync(qualification).GetAwaiter().GetResult()
+            Next
             For Each teacher In teachers
                 _memory.UpsertAsync(teacher).GetAwaiter().GetResult()
             Next
@@ -284,6 +322,7 @@ Namespace ElectrotechnologyResit.Core
         End Sub
 
         Private Sub SaveAll()
+            SaveQualifications()
             SaveTeachers()
             SaveUnits()
             SaveStudents()
@@ -307,6 +346,10 @@ Namespace ElectrotechnologyResit.Core
             WriteList(UnitsPath(), _memory.GetUnitsAsync().GetAwaiter().GetResult())
         End Sub
 
+        Private Sub SaveQualifications()
+            WriteList(QualificationsPath(), _memory.GetQualificationsAsync().GetAwaiter().GetResult())
+        End Sub
+
         Private Function BookingsPath() As String
             Return Path.Combine(_folder, "bookings.json")
         End Function
@@ -321,6 +364,10 @@ Namespace ElectrotechnologyResit.Core
 
         Private Function UnitsPath() As String
             Return Path.Combine(_folder, "units.json")
+        End Function
+
+        Private Function QualificationsPath() As String
+            Return Path.Combine(_folder, "qualifications.json")
         End Function
 
         Private Shared Function ReadList(Of T)(path As String) As List(Of T)

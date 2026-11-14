@@ -1,26 +1,54 @@
 Imports ElectrotechnologyResit.Core
 
 Public Class NewStudent
+    Private ReadOnly _qualification As New ComboBox()
+    Private _units As IReadOnlyList(Of UnitRecord) = Array.Empty(Of UnitRecord)()
+
     Private Sub Button2_Click(sender As Object, e As EventArgs) Handles Button2.Click
         Me.Close()
     End Sub
 
     Private Async Sub NewStudent_Load(sender As Object, e As EventArgs) Handles MyBase.Load
+        _qualification.DropDownStyle = ComboBoxStyle.DropDownList
+        _qualification.Location = New Point(182, 92)
+        _qualification.Size = New Size(157, 23)
+        Controls.Add(New Label With {.AutoSize = True, .Location = New Point(96, 95), .Text = "Qualification"})
+        Controls.Add(_qualification)
+        AddHandler _qualification.SelectedIndexChanged, AddressOf QualificationChanged
         Await PopulateTeacherComboBox()
         Await PopulateUnitComboBox()
     End Sub
 
     Private Async Function PopulateUnitComboBox() As Task
         Try
-            Dim units = Await AppServices.Units.GetAllAsync()
-            ComboBox2.Items.Clear()
-            For Each unit In units
-                ComboBox2.Items.Add(unit.UnitCode)
+            _units = Await AppServices.Units.GetAllAsync()
+            Dim qualifications = Await AppServices.Qualifications.GetAllAsync()
+            _qualification.Items.Clear()
+            For Each qualification In qualifications
+                If QualificationStatus.OfferedForNewBookings(qualification.Status) Then
+                    _qualification.Items.Add(qualification.QualificationCode)
+                End If
             Next
+            If _qualification.Items.Count > 0 Then _qualification.SelectedIndex = 0 Else FillUnits()
         Catch ex As Exception
             MessageBox.Show("Error: " & ex.Message)
         End Try
     End Function
+
+    Private Sub QualificationChanged(sender As Object, e As EventArgs)
+        FillUnits()
+    End Sub
+
+    Private Sub FillUnits()
+        Dim package = If(_qualification.SelectedItem, "").ToString()
+        ComboBox2.Items.Clear()
+        For Each unit In _units
+            If String.Equals(If(unit.QualificationCode, ""), package, StringComparison.OrdinalIgnoreCase) Then
+                ComboBox2.Items.Add(unit.UnitCode)
+            End If
+        Next
+        lblUnit.Text = ""
+    End Sub
 
     Private Async Function PopulateTeacherComboBox() As Task
         Try
@@ -74,15 +102,22 @@ Public Class NewStudent
         End Try
     End Function
 
-    Private Async Sub ComboBox2_SelectedIndexChanged(sender As Object, e As EventArgs) Handles ComboBox2.SelectedIndexChanged
+    Private Sub ComboBox2_SelectedIndexChanged(sender As Object, e As EventArgs) Handles ComboBox2.SelectedIndexChanged
         If ComboBox2.SelectedItem Is Nothing Then Return
-        Try
-            Dim title = Await AppServices.Units.FindTitleAsync(ComboBox2.SelectedItem.ToString())
-            lblUnit.Text = If(String.IsNullOrEmpty(title), "Unit Title not found", title)
-        Catch ex As Exception
-            MessageBox.Show("Error: " & ex.Message)
-        End Try
+        Dim title = TitleForSelectedUnit()
+        lblUnit.Text = If(String.IsNullOrEmpty(title), "Unit Title not found", title)
     End Sub
+
+    Private Function TitleForSelectedUnit() As String
+        Dim package = If(_qualification.SelectedItem, "").ToString()
+        Dim code = If(ComboBox2.SelectedItem, "").ToString()
+        For Each unit In _units
+            If String.Equals(unit.UnitCode, code, StringComparison.OrdinalIgnoreCase) AndAlso String.Equals(If(unit.QualificationCode, ""), package, StringComparison.OrdinalIgnoreCase) Then
+                Return If(unit.UnitTitle, "")
+            End If
+        Next
+        Return ""
+    End Function
 
     Private Async Sub Button1_Click(sender As Object, e As EventArgs) Handles Button1.Click
         Dim studentID As String = txtStudentID.Text.Trim()
@@ -95,7 +130,7 @@ Public Class NewStudent
         Dim unitTitle = lblUnit.Text
         Try
             teacherEmail = Await AppServices.Teachers.FindEmailAsync(teacherName)
-            Dim lookedUpTitle = Await AppServices.Units.FindTitleAsync(ComboBox2.SelectedItem.ToString())
+            Dim lookedUpTitle = TitleForSelectedUnit()
             If Not String.IsNullOrEmpty(lookedUpTitle) Then unitTitle = lookedUpTitle
             If unitTitle = "Unit Title not found" Then unitTitle = ""
             Dim booking As New ResitBooking With {
@@ -107,6 +142,7 @@ Public Class NewStudent
                 .TeacherEmail = teacherEmail,
                 .UnitCode = ComboBox2.SelectedItem.ToString(),
                 .UnitName = unitTitle,
+                .QualificationCode = If(_qualification.SelectedItem, "").ToString(),
                 .AttemptNo = ComboBox3.SelectedItem.ToString(),
                 .EnergyspaceCreated = YesNoBoolean.Parse(ComboBox5.SelectedItem.ToString()),
                 .EnergyspaceAssessmentBooked = YesNoBoolean.Parse(ComboBox4.SelectedItem.ToString()),

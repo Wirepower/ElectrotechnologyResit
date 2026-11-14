@@ -34,6 +34,7 @@ Public Class SetupWizard
     Private txtStudents As TextBox
     Private txtTeachers As TextBox
     Private txtUnits As TextBox
+    Private txtQualifications As TextBox
     Private txtSignature As TextBox
 
     Private lblSignIn As Label
@@ -132,8 +133,11 @@ Public Class SetupWizard
         page.Controls.Add(New Label With {.AutoSize = True, .Location = New Point(360, 220), .Text = "Units list"})
         txtUnits = New TextBox With {.Location = New Point(360, 240), .Width = 300}
         page.Controls.Add(txtUnits)
-        page.Controls.Add(FieldLabel("Signature image library", 272))
-        txtSignature = FieldBox(292)
+        page.Controls.Add(FieldLabel("Qualifications list", 272))
+        txtQualifications = New TextBox With {.Location = New Point(8, 292), .Width = 320}
+        page.Controls.Add(txtQualifications)
+        page.Controls.Add(FieldLabel("Signature image library", 324))
+        txtSignature = FieldBox(344)
         page.Controls.Add(txtSignature)
         AddHandler txtSite.TextChanged, Sub() _signedIn = False
         AddHandler txtClient.TextChanged, Sub() _signedIn = False
@@ -216,11 +220,12 @@ Public Class SetupWizard
         txtStudents.Text = names.Students
         txtTeachers.Text = names.Teachers
         txtUnits.Text = names.Units
+        txtQualifications.Text = names.Qualifications
         txtSignature.Text = names.SignatureLibrary
     End Sub
 
     Private Function ReadNames() As SharePointListNames
-        Return SharePointListNames.FromSettings(txtBookings.Text, txtStudents.Text, txtTeachers.Text, txtUnits.Text, txtSignature.Text)
+        Return SharePointListNames.FromSettings(txtBookings.Text, txtStudents.Text, txtTeachers.Text, txtUnits.Text, txtSignature.Text, txtQualifications.Text)
     End Function
 
     Private Function SaveDetails() As String
@@ -229,6 +234,7 @@ Public Class SetupWizard
         txtStudents.Text = names.Students
         txtTeachers.Text = names.Teachers
         txtUnits.Text = names.Units
+        txtQualifications.Text = names.Qualifications
         txtSignature.Text = names.SignatureLibrary
         Dim problem = SharePointSetupValidation.Validate(txtSite.Text, txtClient.Text, names)
         If problem IsNot Nothing Then Return problem
@@ -240,6 +246,7 @@ Public Class SetupWizard
         My.Settings.StudentsListName = names.Students
         My.Settings.TeachersListName = names.Teachers
         My.Settings.UnitsListName = names.Units
+        My.Settings.QualificationsListName = names.Qualifications
         My.Settings.SignatureImageLocation = names.SignatureLibrary
         My.Settings.Save()
         AppServices.ConfigureFromSettings(Function() CType(Me, IWin32Window))
@@ -337,7 +344,8 @@ Public Class SetupWizard
             txtCreateLog.Text = report.Summary() & vbCrLf & vbCrLf & "Nothing was deleted."
             _listsReady = report.IsSatisfied
             If _listsReady Then
-                txtCreateLog.AppendText(vbCrLf & "The lists are ready. You can import lookup files on the next step, or skip that and finish.")
+                Await QualificationCatalog.EnsureSeedAsync(AppServices.Qualifications, AppServices.Units)
+                txtCreateLog.AppendText(vbCrLf & "The lists are ready. UEE30820 is added when the qualifications list is empty. You can import lookup files on the next step, or skip that and finish.")
             End If
         Catch ex As Exception
             _listsReady = False

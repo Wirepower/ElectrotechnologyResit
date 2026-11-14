@@ -8,6 +8,7 @@ Namespace ElectrotechnologyResit.Core
         Public Property Email As String
         Public Property UnitCode As String
         Public Property UnitName As String
+        Public Property QualificationCode As String
         Public Property BlockGroup As String
         Public Property TeacherName As String
         Public Property TeacherEmail As String
@@ -26,6 +27,7 @@ Namespace ElectrotechnologyResit.Core
                 .Email = Email,
                 .UnitCode = UnitCode,
                 .UnitName = UnitName,
+                .QualificationCode = QualificationCode,
                 .BlockGroup = BlockGroup,
                 .TeacherName = TeacherName,
                 .TeacherEmail = TeacherEmail,
@@ -68,9 +70,10 @@ Namespace ElectrotechnologyResit.Core
     Public Class UnitRecord
         Public Property UnitCode As String
         Public Property UnitTitle As String
+        Public Property QualificationCode As String
 
         Public Function Clone() As UnitRecord
-            Return New UnitRecord With {.UnitCode = UnitCode, .UnitTitle = UnitTitle}
+            Return New UnitRecord With {.UnitCode = UnitCode, .UnitTitle = UnitTitle, .QualificationCode = QualificationCode}
         End Function
     End Class
 
@@ -106,6 +109,7 @@ Namespace ElectrotechnologyResit.Core
         Public Property Teachers As String = "Teachers"
         Public Property Units As String = "Units"
         Public Property SignatureLibrary As String = "EmailSignature"
+        Public Property Qualifications As String = "Qualifications"
 
         Public Shared Function FromSettings(bookings As String, students As String, teachers As String, units As String, signatureLibrary As String) As SharePointListNames
             Return New SharePointListNames With {
@@ -113,8 +117,15 @@ Namespace ElectrotechnologyResit.Core
                 .Students = OrDefault(students, "Students"),
                 .Teachers = OrDefault(teachers, "Teachers"),
                 .Units = OrDefault(units, "Units"),
-                .SignatureLibrary = OrDefault(signatureLibrary, "EmailSignature")
+                .SignatureLibrary = OrDefault(signatureLibrary, "EmailSignature"),
+                .Qualifications = "Qualifications"
             }
+        End Function
+
+        Public Shared Function FromSettings(bookings As String, students As String, teachers As String, units As String, signatureLibrary As String, qualifications As String) As SharePointListNames
+            Dim names = FromSettings(bookings, students, teachers, units, signatureLibrary)
+            names.Qualifications = OrDefault(qualifications, "Qualifications")
+            Return names
         End Function
 
         Public Shared Function [Default]() As SharePointListNames
@@ -127,7 +138,7 @@ Namespace ElectrotechnologyResit.Core
         End Function
 
         Public Function AllNames() As IEnumerable(Of String)
-            Return New String() {Bookings, Students, Teachers, Units, SignatureLibrary}
+            Return New String() {Bookings, Students, Teachers, Units, Qualifications, SignatureLibrary}
         End Function
     End Class
 

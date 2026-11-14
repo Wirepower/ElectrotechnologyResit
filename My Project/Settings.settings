@@ -47,6 +47,9 @@
     <Setting Name="UnitsListName" Type="System.String" Scope="User">
       <Value Profile="(Default)">Units</Value>
     </Setting>
+    <Setting Name="QualificationsListName" Type="System.String" Scope="User">
+      <Value Profile="(Default)">Qualifications</Value>
+    </Setting>
     <Setting Name="SignatureImageLocation" Type="System.String" Scope="User">
       <Value Profile="(Default)">EmailSignature</Value>
     </Setting>

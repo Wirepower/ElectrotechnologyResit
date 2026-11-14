@@ -60,14 +60,16 @@ Namespace ElectrotechnologyResit.Core
             Next
         End Function
 
-        Public Async Function DeleteOnOrBeforeAsync(cutoff As Date) As Task Implements IBookingService.DeleteOnOrBeforeAsync
+        Public Async Function DeleteOnOrBeforeAsync(cutoff As Date) As Task(Of Integer) Implements IBookingService.DeleteOnOrBeforeAsync
             Dim filter = ODataFilters.DateOnOrBefore(SharePointColumns.ResitDate, cutoff)
             Dim items = Await _client.QueryItemsAsync(_listName, filter, True).ConfigureAwait(False)
-            For Each item In items.Select(AddressOf BookingFieldMap.ToBooking)
-                If item.ResitDate.Date <= cutoff.Date AndAlso Not String.IsNullOrEmpty(item.SharePointItemId) Then
-                    Await _client.DeleteItemAsync(_listName, item.SharePointItemId).ConfigureAwait(False)
-                End If
-            Next
+            Dim ids = items.Select(AddressOf BookingFieldMap.ToBooking).
+                Where(Function(item) item.ResitDate.Date <= cutoff.Date AndAlso Not String.IsNullOrEmpty(item.SharePointItemId)).
+                Select(Function(item) item.SharePointItemId).
+                ToList()
+            If ids.Count = 0 Then Return 0
+            Await _client.DeleteItemsAsync(_listName, ids).ConfigureAwait(False)
+            Return ids.Count
         End Function
 
         Public Async Function SetEnergyspaceCreatedAsync(resitDate As Date, unitCode As String, value As Boolean) As Task Implements IBookingService.SetEnergyspaceCreatedAsync
@@ -211,7 +213,8 @@ Namespace ElectrotechnologyResit.Core
             Dim items = Await _client.QueryItemsAsync(_listName, Nothing, False).ConfigureAwait(False)
             Return items.Select(Function(item) New UnitRecord With {
                 .UnitCode = item.Fields.GetString(SharePointColumns.UnitCode),
-                .UnitTitle = item.Fields.GetString(SharePointColumns.UnitTitle)
+                .UnitTitle = item.Fields.GetString(SharePointColumns.UnitTitle),
+                .QualificationCode = item.Fields.GetString(SharePointColumns.QualificationCode)
             }).ToList()
         End Function
 
@@ -228,14 +231,16 @@ Namespace ElectrotechnologyResit.Core
         Public Async Function UpsertAsync(unit As UnitRecord) As Task(Of UpsertKind) Implements IUnitDirectory.UpsertAsync
             Dim code = If(unit?.UnitCode, "").Trim()
             If code.Length = 0 Then Throw New ArgumentException("A unit code is required.")
+            Dim package = If(unit.QualificationCode, "").Trim()
             Dim filter = ODataFilters.TextEquals(SharePointColumns.UnitCode, code)
             Dim existing = Await _client.QueryItemsAsync(_listName, filter, True).ConfigureAwait(False)
             Dim text As New Dictionary(Of String, String) From {
                 {"Title", code},
                 {SharePointColumns.UnitCode, code},
-                {SharePointColumns.UnitTitle, If(unit.UnitTitle, "")}
+                {SharePointColumns.UnitTitle, If(unit.UnitTitle, "")},
+                {SharePointColumns.QualificationCode, package}
             }
-            Dim match = existing.FirstOrDefault()
+            Dim match = existing.FirstOrDefault(Function(item) String.Equals(If(item.Fields, New FieldBag()).GetString(SharePointColumns.QualificationCode), package, StringComparison.OrdinalIgnoreCase))
             If match Is Nothing Then
                 Await _client.CreateItemAsync(_listName, text, Nothing).ConfigureAwait(False)
                 Return UpsertKind.Inserted
@@ -258,6 +263,70 @@ Namespace ElectrotechnologyResit.Core
 
         Public Function GetCurrentImageAsync() As Task(Of Byte()) Implements ISignatureImageStore.GetCurrentImageAsync
             Return _client.DownloadSignatureAsync(_libraryName)
+        End Function
+    End Class
+
+    Public Class SharePointQualificationDirectory
+        Implements IQualificationDirectory
+
+        Private ReadOnly _client As ISharePointClient
+        Private ReadOnly _listName As String
+
+        Public Sub New(client As ISharePointClient, names As SharePointListNames)
+            _client = client
+            _listName = If(names, SharePointListNames.Default()).Qualifications
+        End Sub
+
+        Public Async Function GetAllAsync() As Task(Of IReadOnlyList(Of QualificationRecord)) Implements IQualificationDirectory.GetAllAsync
+            Dim items = Await _client.QueryItemsAsync(_listName, Nothing, False).ConfigureAwait(False)
+            Return items.Select(AddressOf ToRecord).Where(Function(item) item IsNot Nothing).ToList()
+        End Function
+
+        Public Async Function FindAsync(qualificationCode As String) As Task(Of QualificationRecord) Implements IQualificationDirectory.FindAsync
+            Dim code = If(qualificationCode, "").Trim()
+            If code.Length = 0 Then Return Nothing
+            Dim filter = ODataFilters.TextEquals(SharePointColumns.QualificationCode, code)
+            Dim items = Await _client.QueryItemsAsync(_listName, filter, True).ConfigureAwait(False)
+            Return items.Select(AddressOf ToRecord).FirstOrDefault(Function(item) item IsNot Nothing AndAlso String.Equals(item.QualificationCode, code, StringComparison.OrdinalIgnoreCase))
+        End Function
+
+        Public Async Function UpsertAsync(qualification As QualificationRecord) As Task(Of UpsertKind) Implements IQualificationDirectory.UpsertAsync
+            Dim code = If(qualification?.QualificationCode, "").Trim()
+            If code.Length = 0 Then Throw New ArgumentException("A qualification code is required.")
+            Dim rules = AbbreviationRules.Format(qualification.Rules)
+            If rules.Length > 255 Then Throw New InvalidOperationException("Abbreviation rules must be 255 characters or fewer.")
+            Dim filter = ODataFilters.TextEquals(SharePointColumns.QualificationCode, code)
+            Dim existing = Await _client.QueryItemsAsync(_listName, filter, True).ConfigureAwait(False)
+            Dim text As New Dictionary(Of String, String) From {
+                {"Title", code},
+                {SharePointColumns.QualificationCode, code},
+                {SharePointColumns.QualificationTitle, If(qualification.Title, "")},
+                {SharePointColumns.Version, If(qualification.Version, "")},
+                {SharePointColumns.Status, QualificationStatus.Normalise(qualification.Status)},
+                {SharePointColumns.ClassGroupSuffix, If(qualification.ClassGroupSuffix, "")},
+                {SharePointColumns.AbbreviationRules, rules}
+            }
+            Dim match = existing.FirstOrDefault(Function(item) String.Equals(If(item.Fields, New FieldBag()).GetString(SharePointColumns.QualificationCode), code, StringComparison.OrdinalIgnoreCase))
+            If match Is Nothing Then
+                Await _client.CreateItemAsync(_listName, text, Nothing).ConfigureAwait(False)
+                Return UpsertKind.Inserted
+            End If
+            Await _client.UpdateItemAsync(_listName, match.Id, text, Nothing).ConfigureAwait(False)
+            Return UpsertKind.Updated
+        End Function
+
+        Private Shared Function ToRecord(item As ListItemRecord) As QualificationRecord
+            If item Is Nothing OrElse item.Fields Is Nothing Then Return Nothing
+            Dim code = item.Fields.GetString(SharePointColumns.QualificationCode)
+            If String.IsNullOrWhiteSpace(code) Then Return Nothing
+            Return New QualificationRecord With {
+                .QualificationCode = code,
+                .Title = item.Fields.GetString(SharePointColumns.QualificationTitle),
+                .Version = item.Fields.GetString(SharePointColumns.Version),
+                .Status = QualificationStatus.Normalise(item.Fields.GetString(SharePointColumns.Status)),
+                .ClassGroupSuffix = item.Fields.GetString(SharePointColumns.ClassGroupSuffix),
+                .Rules = AbbreviationRules.Parse(item.Fields.GetString(SharePointColumns.AbbreviationRules))
+            }
         End Function
     End Class
 

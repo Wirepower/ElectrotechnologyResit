@@ -8,7 +8,7 @@ Namespace ElectrotechnologyResit.Core
         Function UpsertAsync(booking As ResitBooking, preserveEnergyspaceFlags As Boolean) As Task(Of UpsertResult)
         Function DeleteByStudentIdAsync(studentId As String) As Task
         Function DeleteByDateAsync(resitDate As Date) As Task
-        Function DeleteOnOrBeforeAsync(cutoff As Date) As Task
+        Function DeleteOnOrBeforeAsync(cutoff As Date) As Task(Of Integer)
         Function SetEnergyspaceCreatedAsync(resitDate As Date, unitCode As String, value As Boolean) As Task
         Function SetEnergyspaceAssessmentBookedAsync(resitDate As Date, unitCode As String, value As Boolean) As Task
         Function GetUnitFlagsAsync(resitDate As Date) As Task(Of IReadOnlyList(Of UnitNightFlags))
@@ -23,6 +23,12 @@ Namespace ElectrotechnologyResit.Core
         Function GetAllAsync() As Task(Of IReadOnlyList(Of TeacherRecord))
         Function FindEmailAsync(fullName As String) As Task(Of String)
         Function UpsertAsync(teacher As TeacherRecord) As Task(Of UpsertKind)
+    End Interface
+
+    Public Interface IQualificationDirectory
+        Function GetAllAsync() As Task(Of IReadOnlyList(Of QualificationRecord))
+        Function FindAsync(qualificationCode As String) As Task(Of QualificationRecord)
+        Function UpsertAsync(qualification As QualificationRecord) As Task(Of UpsertKind)
     End Interface
 
     Public Interface IUnitDirectory
@@ -49,6 +55,7 @@ Namespace ElectrotechnologyResit.Core
         Public Shared ReadOnly Headers As String() = {
             "Student ID",
             "Unit",
+            "QualificationCode",
             "Resit date",
             "Blockgroup",
             "AllocatedTeacher",
@@ -67,6 +74,7 @@ Namespace ElectrotechnologyResit.Core
             Dim table As New DataTable()
             table.Columns.Add("Student ID", GetType(String))
             table.Columns.Add("Unit", GetType(String))
+            table.Columns.Add("QualificationCode", GetType(String))
             table.Columns.Add("Resit date", GetType(Date))
             table.Columns.Add("Blockgroup", GetType(String))
             table.Columns.Add("AllocatedTeacher", GetType(String))
@@ -84,6 +92,7 @@ Namespace ElectrotechnologyResit.Core
                 table.Rows.Add(
                     booking.StudentId,
                     booking.UnitCode,
+                    If(booking.QualificationCode, ""),
                     booking.ResitDate.Date,
                     booking.BlockGroup,
                     booking.TeacherName,
@@ -106,12 +115,14 @@ Namespace ElectrotechnologyResit.Core
         Implements IStudentDirectory
         Implements ITeacherDirectory
         Implements IUnitDirectory
+        Implements IQualificationDirectory
         Implements ISignatureImageStore
 
         Private ReadOnly _bookings As New Dictionary(Of String, ResitBooking)(StringComparer.OrdinalIgnoreCase)
         Private ReadOnly _students As New Dictionary(Of String, StudentRecord)(StringComparer.OrdinalIgnoreCase)
         Private ReadOnly _teachers As New Dictionary(Of String, TeacherRecord)(StringComparer.OrdinalIgnoreCase)
         Private ReadOnly _units As New Dictionary(Of String, UnitRecord)(StringComparer.OrdinalIgnoreCase)
+        Private ReadOnly _qualifications As New Dictionary(Of String, QualificationRecord)(StringComparer.OrdinalIgnoreCase)
         Public Property SignatureImage As Byte()
         Public Property StudentLookupCount As Integer
 
@@ -120,6 +131,7 @@ Namespace ElectrotechnologyResit.Core
             _students.Clear()
             _teachers.Clear()
             _units.Clear()
+            _qualifications.Clear()
             SignatureImage = Nothing
         End Sub
 
@@ -160,9 +172,8 @@ Namespace ElectrotechnologyResit.Core
             Return Task.CompletedTask
         End Function
 
-        Public Function DeleteOnOrBeforeAsync(cutoff As Date) As Task Implements IBookingService.DeleteOnOrBeforeAsync
-            RemoveWhere(Function(item) item.ResitDate.Date <= cutoff.Date)
-            Return Task.CompletedTask
+        Public Function DeleteOnOrBeforeAsync(cutoff As Date) As Task(Of Integer) Implements IBookingService.DeleteOnOrBeforeAsync
+            Return Task.FromResult(RemoveCounted(Function(item) item.ResitDate.Date <= cutoff.Date))
         End Function
 
         Public Function SetEnergyspaceCreatedAsync(resitDate As Date, unitCode As String, value As Boolean) As Task Implements IBookingService.SetEnergyspaceCreatedAsync
@@ -224,17 +235,46 @@ Namespace ElectrotechnologyResit.Core
         End Function
 
         Public Function FindTitleAsync(unitCode As String) As Task(Of String) Implements IUnitDirectory.FindTitleAsync
-            Dim found As UnitRecord = Nothing
-            If _units.TryGetValue(If(unitCode, "").Trim(), found) Then Return Task.FromResult(If(found.UnitTitle, ""))
-            Return Task.FromResult("")
+            Dim code = If(unitCode, "").Trim()
+            Dim found = _units.Values.FirstOrDefault(Function(item) String.Equals(item.UnitCode, code, StringComparison.OrdinalIgnoreCase))
+            If found Is Nothing Then Return Task.FromResult("")
+            Return Task.FromResult(If(found.UnitTitle, ""))
         End Function
 
         Public Function UpsertAsync(unit As UnitRecord) As Task(Of UpsertKind) Implements IUnitDirectory.UpsertAsync
             Dim code = If(unit?.UnitCode, "").Trim()
             If code.Length = 0 Then Throw New ArgumentException("A unit code is required.")
-            Dim kind = If(_units.ContainsKey(code), UpsertKind.Updated, UpsertKind.Inserted)
-            _units(code) = New UnitRecord With {.UnitCode = code, .UnitTitle = If(unit.UnitTitle, "").Trim()}
+            Dim key = UnitKey(unit.QualificationCode, code)
+            Dim kind = If(_units.ContainsKey(key), UpsertKind.Updated, UpsertKind.Inserted)
+            _units(key) = New UnitRecord With {.UnitCode = code, .UnitTitle = If(unit.UnitTitle, "").Trim(), .QualificationCode = If(unit.QualificationCode, "").Trim()}
             Return Task.FromResult(kind)
+        End Function
+
+        Public Function GetQualificationsAsync() As Task(Of IReadOnlyList(Of QualificationRecord)) Implements IQualificationDirectory.GetAllAsync
+            Dim rows = _qualifications.Values.Select(Function(item) item.Clone()).OrderBy(Function(item) item.QualificationCode, StringComparer.OrdinalIgnoreCase).ToList()
+            Return Task.FromResult(Of IReadOnlyList(Of QualificationRecord))(rows)
+        End Function
+
+        Public Function FindQualificationAsync(qualificationCode As String) As Task(Of QualificationRecord) Implements IQualificationDirectory.FindAsync
+            Dim found As QualificationRecord = Nothing
+            If _qualifications.TryGetValue(If(qualificationCode, "").Trim(), found) Then Return Task.FromResult(found.Clone())
+            Return Task.FromResult(Of QualificationRecord)(Nothing)
+        End Function
+
+        Public Function UpsertAsync(qualification As QualificationRecord) As Task(Of UpsertKind) Implements IQualificationDirectory.UpsertAsync
+            Dim code = If(qualification?.QualificationCode, "").Trim()
+            If code.Length = 0 Then Throw New ArgumentException("A qualification code is required.")
+            Dim kind = If(_qualifications.ContainsKey(code), UpsertKind.Updated, UpsertKind.Inserted)
+            Dim stored = qualification.Clone()
+            stored.QualificationCode = code
+            stored.Status = QualificationStatus.Normalise(stored.Status)
+            If stored.Rules Is Nothing Then stored.Rules = New List(Of AbbreviationRule)
+            _qualifications(code) = stored
+            Return Task.FromResult(kind)
+        End Function
+
+        Private Shared Function UnitKey(qualificationCode As String, unitCode As String) As String
+            Return If(qualificationCode, "").Trim() & "|" & unitCode.Trim()
         End Function
 
         Public Function GetCurrentImageAsync() As Task(Of Byte()) Implements ISignatureImageStore.GetCurrentImageAsync
@@ -246,10 +286,16 @@ Namespace ElectrotechnologyResit.Core
         End Function
 
         Private Sub RemoveWhere(predicate As Func(Of ResitBooking, Boolean))
-            For Each id In _bookings.Where(Function(pair) predicate(pair.Value)).Select(Function(pair) pair.Key).ToList()
+            RemoveCounted(predicate)
+        End Sub
+
+        Private Function RemoveCounted(predicate As Func(Of ResitBooking, Boolean)) As Integer
+            Dim ids = _bookings.Where(Function(pair) predicate(pair.Value)).Select(Function(pair) pair.Key).ToList()
+            For Each id In ids
                 _bookings.Remove(id)
             Next
-        End Sub
+            Return ids.Count
+        End Function
 
         Private Shared Function ClonedBookings(rows As IEnumerable(Of ResitBooking)) As IReadOnlyList(Of ResitBooking)
             Return rows.Select(Function(item) item.Clone()).ToList()

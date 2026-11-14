@@ -353,10 +353,22 @@ Friend NotInheritable Class BookingsDataImporter
             .BlockGroup = blockgroup,
             .ResitDate = night,
             .EnergyspaceCreated = False,
-            .EnergyspaceAssessmentBooked = False
+            .EnergyspaceAssessmentBooked = False,
+            .QualificationCode = Await QualificationForNewBookingAsync(unit).ConfigureAwait(False)
         }
         Dim result = Await bookings.UpsertAsync(booking, preserveEnergyspaceFlags:=True).ConfigureAwait(False)
         If result.Kind = UpsertKind.Inserted Then Return 1
         Return 2
+    End Function
+
+    Private Shared Async Function QualificationForNewBookingAsync(unitCode As String) As Task(Of String)
+        Try
+            If AppServices.Units Is Nothing OrElse AppServices.Qualifications Is Nothing Then Return ""
+            Dim units = Await AppServices.Units.GetAllAsync().ConfigureAwait(False)
+            Dim qualifications = Await AppServices.Qualifications.GetAllAsync().ConfigureAwait(False)
+            Return QualificationSelection.ForNewBooking(unitCode, units, qualifications)
+        Catch
+            Return ""
+        End Try
     End Function
 End Class

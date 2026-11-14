@@ -32,8 +32,21 @@ Public Class Settings
             .Location = New Point(324, 26),
             .Size = New Size(160, 27)
         }
+        Dim qualificationsButton As New Button With {
+            .Text = "Qualifications and units",
+            .Location = New Point(500, 26),
+            .Size = New Size(180, 27)
+        }
         sourceGroup.Controls.Add(ComboBoxDataSource)
         sourceGroup.Controls.Add(ButtonResetSample)
+        sourceGroup.Controls.Add(qualificationsButton)
+        AddHandler qualificationsButton.Click, Sub()
+                                                    ApplySharePointFields()
+                                                    My.Settings.Save()
+                                                    AppServices.ConfigureFromSettings(Function() CType(Me, IWin32Window))
+                                                    Dim form As New QualificationsForm()
+                                                    form.ShowDialog(Me)
+                                                End Sub
         Controls.Add(sourceGroup)
         AddHandler ComboBoxDataSource.SelectedIndexChanged, AddressOf DataSourceChanged
         AddHandler ButtonResetSample.Click, AddressOf ResetSample_Click

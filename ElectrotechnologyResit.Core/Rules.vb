@@ -162,6 +162,11 @@ Namespace ElectrotechnologyResit.Core
             End If
             merged.TeacherName = If(merged.TeacherName, "").Trim()
             merged.TeacherEmail = TeacherEmailResolver.EmailFor(teachers, merged.TeacherName)
+            If existing IsNot Nothing Then
+                merged.QualificationCode = If(existing.QualificationCode, "")
+            Else
+                merged.QualificationCode = If(incoming.QualificationCode, "").Trim()
+            End If
             Return merged
         End Function
     End Class

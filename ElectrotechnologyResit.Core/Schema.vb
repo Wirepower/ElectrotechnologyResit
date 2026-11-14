@@ -22,6 +22,11 @@ Namespace ElectrotechnologyResit.Core
         Public Const Email As String = "Email"
         Public Const UnitCode As String = "UnitCode"
         Public Const UnitTitle As String = "UnitTitle"
+        Public Const QualificationCode As String = "QualificationCode"
+        Public Const QualificationTitle As String = "QualificationTitle"
+        Public Const Version As String = "Version"
+        Public Const ClassGroupSuffix As String = "ClassGroupSuffix"
+        Public Const AbbreviationRules As String = "AbbreviationRules"
 
         Private Sub New()
         End Sub
@@ -38,6 +43,7 @@ Namespace ElectrotechnologyResit.Core
                 Students(configured.Students),
                 Teachers(configured.Teachers),
                 Units(configured.Units),
+                Qualifications(configured.Qualifications),
                 Signature(configured.SignatureLibrary)
             }
         End Function
@@ -59,6 +65,7 @@ Namespace ElectrotechnologyResit.Core
                 .Columns = New List(Of ColumnSpec) From {
                     TextColumn(SharePointColumns.StudentId, "Student ID", unique:=True),
                     TextColumn(SharePointColumns.Unit, "Unit"),
+                    TextColumn(SharePointColumns.QualificationCode, "QualificationCode", indexed:=True),
                     New ColumnSpec With {.Name = SharePointColumns.ResitDate, .DisplayName = "Resit date", .Kind = ColumnKind.DateOnly, .Indexed = True},
                     TextColumn(SharePointColumns.Blockgroup, "Blockgroup"),
                     TextColumn(SharePointColumns.AllocatedTeacher, "AllocatedTeacher"),
@@ -105,8 +112,24 @@ Namespace ElectrotechnologyResit.Core
                 .DisplayName = displayName,
                 .Template = ListTemplateKind.GenericList,
                 .Columns = New List(Of ColumnSpec) From {
-                    TextColumn(SharePointColumns.UnitCode, "Unit Code", unique:=True),
-                    TextColumn(SharePointColumns.UnitTitle, "Unit Title")
+                    TextColumn(SharePointColumns.UnitCode, "Unit Code", indexed:=True),
+                    TextColumn(SharePointColumns.UnitTitle, "Unit Title"),
+                    TextColumn(SharePointColumns.QualificationCode, "QualificationCode", indexed:=True)
+                }
+            }
+        End Function
+
+        Private Shared Function Qualifications(displayName As String) As ListSpec
+            Return New ListSpec With {
+                .DisplayName = displayName,
+                .Template = ListTemplateKind.GenericList,
+                .Columns = New List(Of ColumnSpec) From {
+                    TextColumn(SharePointColumns.QualificationCode, "QualificationCode", unique:=True),
+                    TextColumn(SharePointColumns.QualificationTitle, "Qualification title"),
+                    TextColumn(SharePointColumns.Version, "Version"),
+                    TextColumn(SharePointColumns.Status, "Status", indexed:=True),
+                    TextColumn(SharePointColumns.ClassGroupSuffix, "ClassGroupSuffix"),
+                    TextColumn(SharePointColumns.AbbreviationRules, "AbbreviationRules")
                 }
             }
         End Function

@@ -89,6 +89,7 @@ Public Module AppServices
     Public Property Students As IStudentDirectory
     Public Property Teachers As ITeacherDirectory
     Public Property Units As IUnitDirectory
+    Public Property Qualifications As IQualificationDirectory
     Public Property Signature As ISignatureImageStore
     Public Property Provisioner As ISharePointProvisioner
     Public Property LookupImport As LookupImportService
@@ -113,7 +114,7 @@ Public Module AppServices
     Public Sub ConfigureFromSettings(owner As Func(Of IWin32Window))
         Dim names = CurrentNames()
         Dim mode = If(IsSampleMode, "Sample", "SharePoint")
-        Dim key = mode & "|" & String.Join("|", My.Settings.SharePointSiteUrl, My.Settings.GraphClientId, My.Settings.GraphTenantId, My.Settings.GraphUseSitesSelected.ToString(), names.Bookings, names.Students, names.Teachers, names.Units, names.SignatureLibrary)
+        Dim key = mode & "|" & String.Join("|", My.Settings.SharePointSiteUrl, My.Settings.GraphClientId, My.Settings.GraphTenantId, My.Settings.GraphUseSitesSelected.ToString(), names.Bookings, names.Students, names.Teachers, names.Units, names.Qualifications, names.SignatureLibrary)
         If key = _configuredKey AndAlso Bookings IsNot Nothing Then Return
         If IsSampleMode Then
             Sample = New SampleDataStore(SampleDataStore.DefaultFolder(), MelbourneCalendar.Today())
@@ -121,6 +122,7 @@ Public Module AppServices
             Students = Sample
             Teachers = Sample
             Units = Sample
+            Qualifications = Sample
             Signature = Sample
             Client = Nothing
             Provisioner = Nothing
@@ -133,6 +135,7 @@ Public Module AppServices
             Teachers = New CachingTeacherDirectory(New SharePointTeacherDirectory(graph, names))
             Bookings = New SharePointBookingService(graph, names, Teachers)
             Units = New CachingUnitDirectory(New SharePointUnitDirectory(graph, names))
+            Qualifications = New SharePointQualificationDirectory(graph, names)
             Signature = New SharePointSignatureStore(graph, names)
             Provisioner = New ListProvisioner(New GraphSchemaStore(graph, names), names)
             LookupImport = New LookupImportService(Students, Teachers, Units)
@@ -165,7 +168,8 @@ Public Module AppServices
             My.Settings.StudentsListName,
             My.Settings.TeachersListName,
             My.Settings.UnitsListName,
-            My.Settings.SignatureImageLocation)
+            My.Settings.SignatureImageLocation,
+            My.Settings.QualificationsListName)
     End Function
 
     Public Async Function CheckSiteAccessAsync() As Task(Of SiteAccessResult)

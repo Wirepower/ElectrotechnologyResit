@@ -236,6 +236,18 @@ Namespace My
 
         <Global.System.Configuration.UserScopedSettingAttribute(),  _
          Global.System.Diagnostics.DebuggerNonUserCodeAttribute(),  _
+         Global.System.Configuration.DefaultSettingValueAttribute("Qualifications")>  _
+        Public Property QualificationsListName() As String
+            Get
+                Return CType(Me("QualificationsListName"),String)
+            End Get
+            Set
+                Me("QualificationsListName") = value
+            End Set
+        End Property
+
+        <Global.System.Configuration.UserScopedSettingAttribute(),  _
+         Global.System.Diagnostics.DebuggerNonUserCodeAttribute(),  _
          Global.System.Configuration.DefaultSettingValueAttribute("EmailSignature")>  _
         Public Property SignatureImageLocation() As String
             Get

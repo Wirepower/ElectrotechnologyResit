@@ -3,12 +3,19 @@ Imports ElectrotechnologyResit.Core
 Public Class EditStudent
     Public Property MainFormDataGridView As DataGridView
     Private currentRowIndex As Integer = -1
+    Private ReadOnly _qualification As New Label()
+    Private _storedQualification As String = ""
+    Private _units As IReadOnlyList(Of UnitRecord) = Array.Empty(Of UnitRecord)()
 
     Private Sub Button2_Click(sender As Object, e As EventArgs) Handles Button2.Click
         Me.Close()
     End Sub
 
     Private Async Sub EditStudent_Load(sender As Object, e As EventArgs) Handles MyBase.Load
+        _qualification.AutoSize = True
+        _qualification.Location = New Point(184, 96)
+        Controls.Add(New Label With {.AutoSize = True, .Location = New Point(96, 96), .Text = "Qualification"})
+        Controls.Add(_qualification)
         Await PopulateUnitComboBox()
         Await PopulateTeacherComboBox()
         If MainFormDataGridView IsNot Nothing AndAlso MainFormDataGridView.Rows.Count > 0 Then
@@ -22,14 +29,20 @@ Public Class EditStudent
 
     Private Async Function PopulateUnitComboBox() As Task
         Try
-            ComboBox2.Items.Clear()
-            For Each unit In Await AppServices.Units.GetAllAsync()
-                ComboBox2.Items.Add(unit.UnitCode)
-            Next
+            _units = Await AppServices.Units.GetAllAsync()
         Catch ex As Exception
             MessageBox.Show("Error: " & ex.Message)
         End Try
     End Function
+
+    Private Sub FillUnitsForStoredQualification()
+        ComboBox2.Items.Clear()
+        For Each unit In _units
+            If String.Equals(If(unit.QualificationCode, ""), _storedQualification, StringComparison.OrdinalIgnoreCase) Then
+                ComboBox2.Items.Add(unit.UnitCode)
+            End If
+        Next
+    End Sub
 
     Private Async Function PopulateTeacherComboBox() As Task
         Try
@@ -51,6 +64,9 @@ Public Class EditStudent
                 TextBox4.Text = CellText(row, "Surname")
                 TextBox5.Text = CellText(row, "Email")
                 ComboBox1.Text = CellText(row, "AllocatedTeacher")
+                _storedQualification = CellText(row, "QualificationCode")
+                _qualification.Text = If(String.IsNullOrWhiteSpace(_storedQualification), "(not recorded)", _storedQualification)
+                FillUnitsForStoredQualification()
                 ComboBox2.Text = CellText(row, "Unit")
                 ComboBox3.Text = CellText(row, "AttemptNo")
                 ComboBox5.Text = YesNoBoolean.ToYesNo(YesNoBoolean.Parse(CellText(row, "EnergyspaceClassCreated")))

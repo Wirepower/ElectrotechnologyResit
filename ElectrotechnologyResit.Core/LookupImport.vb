@@ -103,12 +103,19 @@ Namespace ElectrotechnologyResit.Core
         End Function
 
         Public Shared Function ReadUnits(path As String) As IReadOnlyList(Of UnitRecord)
+            Return ReadUnits(path, Nothing)
+        End Function
+
+        Public Shared Function ReadUnits(path As String, qualificationCode As String) As IReadOnlyList(Of UnitRecord)
             Dim table = ReadTable(path)
             Dim code = RequireColumn(table.Headers, "Unit Code", "Unit_Code", "Code", "Unit")
             Dim title = RequireColumn(table.Headers, "Unit Title", "Unit_Title", "Title", "Unit Name")
+            Dim packageColumn = FindHeader(table.Headers, "QualificationCode", "Qualification Code", "Qualification")
             Dim rows As New List(Of UnitRecord)
             For Each line In table.Rows
-                rows.Add(New UnitRecord With {.UnitCode = Cell(line, code), .UnitTitle = Cell(line, title)})
+                Dim package = If(qualificationCode, "").Trim()
+                If package.Length = 0 AndAlso packageColumn >= 0 Then package = Cell(line, packageColumn)
+                rows.Add(New UnitRecord With {.UnitCode = Cell(line, code), .UnitTitle = Cell(line, title), .QualificationCode = package})
             Next
             Return rows
         End Function

@@ -29,6 +29,11 @@ Public Class SampleDataTests
             Assert.Contains(seed.Bookings, Function(item) item.UnitCode = code)
         Next
         Assert.Equal(14, seed.Bookings.Count)
+        Assert.Single(seed.Qualifications)
+        Assert.Equal("UEE30820", seed.Qualifications(0).QualificationCode)
+        Assert.Equal(QualificationStatus.Active, seed.Qualifications(0).Status)
+        Assert.All(seed.Bookings, Sub(item) Assert.Equal("UEE30820", item.QualificationCode))
+        Assert.All(seed.Units, Sub(item) Assert.Equal("UEE30820", item.QualificationCode))
     End Sub
 
     <Fact>

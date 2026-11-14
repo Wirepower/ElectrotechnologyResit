@@ -13,6 +13,7 @@ param(
     [string] $StudentsList = "Students",
     [string] $TeachersList = "Teachers",
     [string] $UnitsList = "Units",
+    [string] $QualificationsList = "Qualifications",
     [string] $SignatureLibrary = "EmailSignature"
 )
 
@@ -87,6 +88,7 @@ function Ensure-YesNoColumn {
 Ensure-ResitList -Title $ResitBookingsList -Template GenericList
 Ensure-TextColumn -List $ResitBookingsList -Internal "StudentID" -Display "Student ID" -Unique
 Ensure-TextColumn -List $ResitBookingsList -Internal "Unit" -Display "Unit"
+Ensure-TextColumn -List $ResitBookingsList -Internal "QualificationCode" -Display "QualificationCode" -Indexed
 Ensure-DateColumn -List $ResitBookingsList -Internal "ResitDate" -Display "Resit date"
 Ensure-TextColumn -List $ResitBookingsList -Internal "Blockgroup" -Display "Blockgroup"
 Ensure-TextColumn -List $ResitBookingsList -Internal "AllocatedTeacher" -Display "AllocatedTeacher"
@@ -112,8 +114,17 @@ Ensure-TextColumn -List $TeachersList -Internal "TeacherFullName" -Display "Teac
 Ensure-TextColumn -List $TeachersList -Internal "Email" -Display "Email"
 
 Ensure-ResitList -Title $UnitsList -Template GenericList
-Ensure-TextColumn -List $UnitsList -Internal "UnitCode" -Display "Unit Code" -Unique
+Ensure-TextColumn -List $UnitsList -Internal "UnitCode" -Display "Unit Code" -Indexed
 Ensure-TextColumn -List $UnitsList -Internal "UnitTitle" -Display "Unit Title"
+Ensure-TextColumn -List $UnitsList -Internal "QualificationCode" -Display "QualificationCode" -Indexed
+
+Ensure-ResitList -Title $QualificationsList -Template GenericList
+Ensure-TextColumn -List $QualificationsList -Internal "QualificationCode" -Display "QualificationCode" -Unique
+Ensure-TextColumn -List $QualificationsList -Internal "QualificationTitle" -Display "Qualification title"
+Ensure-TextColumn -List $QualificationsList -Internal "Version" -Display "Version"
+Ensure-TextColumn -List $QualificationsList -Internal "Status" -Display "Status" -Indexed
+Ensure-TextColumn -List $QualificationsList -Internal "ClassGroupSuffix" -Display "ClassGroupSuffix"
+Ensure-TextColumn -List $QualificationsList -Internal "AbbreviationRules" -Display "AbbreviationRules"
 
 Ensure-ResitList -Title $SignatureLibrary -Template DocumentLibrary
 
