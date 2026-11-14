@@ -109,9 +109,9 @@ Public Module AppServices
         Dim provider As New MsalTokenProvider(My.Settings.GraphClientId, My.Settings.GraphTenantId, My.Settings.GraphUseSitesSelected, owner)
         Dim graph As New GraphSharePointClient(New GraphExecutor(New GraphHttpTransport(provider)), My.Settings.SharePointSiteUrl)
         Client = graph
-        Bookings = New SharePointBookingService(graph, names)
         Students = New CachingStudentDirectory(New SharePointStudentDirectory(graph, names))
         Teachers = New CachingTeacherDirectory(New SharePointTeacherDirectory(graph, names))
+        Bookings = New SharePointBookingService(graph, names, Teachers)
         Units = New CachingUnitDirectory(New SharePointUnitDirectory(graph, names))
         Signature = New SharePointSignatureStore(graph, names)
         Provisioner = New ListProvisioner(New GraphSchemaStore(graph, names), names)

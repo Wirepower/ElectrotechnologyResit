@@ -86,19 +86,19 @@ function Ensure-YesNoColumn {
 
 Ensure-ResitList -Title $ResitBookingsList -Template GenericList
 Ensure-TextColumn -List $ResitBookingsList -Internal "StudentID" -Display "Student ID" -Unique
-Ensure-TextColumn -List $ResitBookingsList -Internal "StudentFirstname" -Display "Student Firstname"
-Ensure-TextColumn -List $ResitBookingsList -Internal "StudentSurname" -Display "Student Surname"
-Ensure-TextColumn -List $ResitBookingsList -Internal "StudentEmail" -Display "Student Email"
 Ensure-TextColumn -List $ResitBookingsList -Internal "Unit" -Display "Unit"
-Ensure-TextColumn -List $ResitBookingsList -Internal "UnitName" -Display "Unit Name"
-Ensure-TextColumn -List $ResitBookingsList -Internal "Blockgroup" -Display "Blockgroup"
-Ensure-TextColumn -List $ResitBookingsList -Internal "AllocatedTeacher" -Display "Allocated Teacher"
-Ensure-TextColumn -List $ResitBookingsList -Internal "AllocatedTeacherEmail" -Display "Allocated Teacher Email"
-Ensure-TextColumn -List $ResitBookingsList -Internal "AttemptNo" -Display "Attempt No"
 Ensure-DateColumn -List $ResitBookingsList -Internal "ResitDate" -Display "Resit date"
-Ensure-YesNoColumn -List $ResitBookingsList -Internal "EnergyspaceCreated" -Display "Energyspace Created"
-Ensure-YesNoColumn -List $ResitBookingsList -Internal "EnergyspaceAssessmentBooked" -Display "Energyspace Assessment Booked"
+Ensure-TextColumn -List $ResitBookingsList -Internal "Blockgroup" -Display "Blockgroup"
+Ensure-TextColumn -List $ResitBookingsList -Internal "AllocatedTeacher" -Display "AllocatedTeacher"
 Ensure-TextColumn -List $ResitBookingsList -Internal "Status" -Display "status"
+Ensure-TextColumn -List $ResitBookingsList -Internal "AllocatedTeacherEmail" -Display "AllocatedTeacher email"
+Ensure-YesNoColumn -List $ResitBookingsList -Internal "EnergyspaceClassCreated" -Display "EnergyspaceClassCreated"
+Ensure-YesNoColumn -List $ResitBookingsList -Internal "EnergyspaceAssessmentBooked" -Display "EnergyspaceAssessmentBooked"
+Ensure-TextColumn -List $ResitBookingsList -Internal "AttemptNo" -Display "AttemptNo"
+Ensure-TextColumn -List $ResitBookingsList -Internal "StudentFirstname" -Display "Student Firstname"
+Ensure-TextColumn -List $ResitBookingsList -Internal "Surname" -Display "Surname"
+Ensure-TextColumn -List $ResitBookingsList -Internal "Email" -Display "Email"
+Ensure-TextColumn -List $ResitBookingsList -Internal "UnitName" -Display "Unit Name"
 
 Ensure-ResitList -Title $StudentsList -Template GenericList
 Ensure-TextColumn -List $StudentsList -Internal "StudentID" -Display "Student ID" -Unique

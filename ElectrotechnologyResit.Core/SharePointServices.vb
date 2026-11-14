@@ -4,10 +4,12 @@ Namespace ElectrotechnologyResit.Core
         Implements IBookingService
 
         Private ReadOnly _client As ISharePointClient
+        Private ReadOnly _teachers As ITeacherDirectory
         Private ReadOnly _listName As String
 
-        Public Sub New(client As ISharePointClient, names As SharePointListNames)
+        Public Sub New(client As ISharePointClient, names As SharePointListNames, teachers As ITeacherDirectory)
             _client = client
+            _teachers = teachers
             _listName = If(names, SharePointListNames.Default()).Bookings
         End Sub
 
@@ -28,7 +30,8 @@ Namespace ElectrotechnologyResit.Core
             Dim filter = ODataFilters.TextEquals(SharePointColumns.StudentId, id)
             Dim existingItems = Await _client.QueryItemsAsync(_listName, filter, True).ConfigureAwait(False)
             Dim existing = existingItems.Select(AddressOf BookingFieldMap.ToBooking).FirstOrDefault(Function(item) String.Equals(item.StudentId, id, StringComparison.OrdinalIgnoreCase))
-            Dim merged = BookingUpsert.Merge(existing, booking, preserveEnergyspaceFlags)
+            Dim teachers = If(_teachers Is Nothing, Enumerable.Empty(Of TeacherRecord)(), Await _teachers.GetAllAsync().ConfigureAwait(False))
+            Dim merged = BookingUpsert.Merge(existing, booking, preserveEnergyspaceFlags, teachers)
             Dim includeFlags = existing Is Nothing OrElse Not preserveEnergyspaceFlags
             Dim text As Dictionary(Of String, String) = Nothing
             Dim flags As Dictionary(Of String, Boolean) = Nothing
@@ -68,7 +71,7 @@ Namespace ElectrotechnologyResit.Core
         End Function
 
         Public Async Function SetEnergyspaceCreatedAsync(resitDate As Date, unitCode As String, value As Boolean) As Task Implements IBookingService.SetEnergyspaceCreatedAsync
-            Await SetFlagAsync(resitDate, unitCode, SharePointColumns.EnergyspaceCreated, value).ConfigureAwait(False)
+            Await SetFlagAsync(resitDate, unitCode, SharePointColumns.EnergyspaceClassCreated, value).ConfigureAwait(False)
         End Function
 
         Public Async Function SetEnergyspaceAssessmentBookedAsync(resitDate As Date, unitCode As String, value As Boolean) As Task Implements IBookingService.SetEnergyspaceAssessmentBookedAsync

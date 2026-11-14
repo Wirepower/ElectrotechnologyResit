@@ -208,8 +208,8 @@ Namespace ElectrotechnologyResit.Core
                 {"Title", If(booking.StudentId, "")},
                 {SharePointColumns.StudentId, If(booking.StudentId, "")},
                 {SharePointColumns.StudentFirstname, If(booking.FirstName, "")},
-                {SharePointColumns.StudentSurname, If(booking.Surname, "")},
-                {SharePointColumns.StudentEmail, If(booking.Email, "")},
+                {SharePointColumns.Surname, If(booking.Surname, "")},
+                {SharePointColumns.Email, If(booking.Email, "")},
                 {SharePointColumns.Unit, If(booking.UnitCode, "")},
                 {SharePointColumns.UnitName, If(booking.UnitName, "")},
                 {SharePointColumns.Blockgroup, If(booking.BlockGroup, "")},
@@ -220,7 +220,7 @@ Namespace ElectrotechnologyResit.Core
             }
             flags = New Dictionary(Of String, Boolean)
             If includeFlags Then
-                flags(SharePointColumns.EnergyspaceCreated) = booking.EnergyspaceCreated
+                flags(SharePointColumns.EnergyspaceClassCreated) = booking.EnergyspaceCreated
                 flags(SharePointColumns.EnergyspaceAssessmentBooked) = booking.EnergyspaceAssessmentBooked
             End If
         End Sub
@@ -231,8 +231,8 @@ Namespace ElectrotechnologyResit.Core
                 .SharePointItemId = item.Id,
                 .StudentId = fields.GetString(SharePointColumns.StudentId),
                 .FirstName = fields.GetString(SharePointColumns.StudentFirstname),
-                .Surname = fields.GetString(SharePointColumns.StudentSurname),
-                .Email = fields.GetString(SharePointColumns.StudentEmail),
+                .Surname = fields.GetString(SharePointColumns.Surname),
+                .Email = fields.GetString(SharePointColumns.Email),
                 .UnitCode = fields.GetString(SharePointColumns.Unit),
                 .UnitName = fields.GetString(SharePointColumns.UnitName),
                 .BlockGroup = fields.GetString(SharePointColumns.Blockgroup),
@@ -240,7 +240,7 @@ Namespace ElectrotechnologyResit.Core
                 .TeacherEmail = fields.GetString(SharePointColumns.AllocatedTeacherEmail),
                 .AttemptNo = fields.GetString(SharePointColumns.AttemptNo),
                 .ResitDate = MelbourneCalendar.ReadCalendarDate(fields.GetString(SharePointColumns.ResitDate)),
-                .EnergyspaceCreated = fields.GetBool(SharePointColumns.EnergyspaceCreated),
+                .EnergyspaceCreated = fields.GetBool(SharePointColumns.EnergyspaceClassCreated),
                 .EnergyspaceAssessmentBooked = fields.GetBool(SharePointColumns.EnergyspaceAssessmentBooked),
                 .Status = fields.GetString(SharePointColumns.Status)
             }

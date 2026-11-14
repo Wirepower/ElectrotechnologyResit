@@ -141,7 +141,7 @@ Namespace ElectrotechnologyResit.Core
         ''' One student ID is one booking. When preserveFlags is true and a row already exists,
         ''' Energyspace checkpoints and status stay as they were. A new row uses the incoming flags.
         ''' </summary>
-        Public Shared Function Merge(existing As ResitBooking, incoming As ResitBooking, preserveFlags As Boolean) As ResitBooking
+        Public Shared Function Merge(existing As ResitBooking, incoming As ResitBooking, preserveFlags As Boolean, teachers As IEnumerable(Of TeacherRecord)) As ResitBooking
             If incoming Is Nothing Then Throw New ArgumentNullException(NameOf(incoming))
             Dim merged = incoming.Clone()
             merged.StudentId = If(incoming.StudentId, "").Trim()
@@ -155,6 +155,8 @@ Namespace ElectrotechnologyResit.Core
                 merged.SharePointItemId = existing.SharePointItemId
                 If String.IsNullOrEmpty(merged.Status) Then merged.Status = existing.Status
             End If
+            merged.TeacherName = If(merged.TeacherName, "").Trim()
+            merged.TeacherEmail = TeacherEmailResolver.EmailFor(teachers, merged.TeacherName)
             Return merged
         End Function
     End Class

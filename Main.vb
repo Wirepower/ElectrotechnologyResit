@@ -32,11 +32,10 @@ Public Class Main
         'UpdateDataGridView()
     End Sub
 
-    Private Async Sub Button2_Click(sender As Object, e As EventArgs) Handles Button2.Click
+    Private Sub Button2_Click(sender As Object, e As EventArgs) Handles Button2.Click
         Dim editStudentForm As New EditStudent()
         editStudentForm.MainFormDataGridView = DataGridView1
         editStudentForm.Show()
-        Await UpdateDataGridView()
     End Sub
 
     Private Async Sub Main_Load(sender As Object, e As EventArgs) Handles MyBase.Load
@@ -73,8 +72,7 @@ Public Class Main
 
         Try
             Me.Cursor = Cursors.WaitCursor
-            Await UpdateDataGridView()
-            FilterData()
+            Await ReloadBookingsAsync(applyDateFilter:=True)
             ApplyPullFromBookingsButtonVisibility()
             _ready = True
         Catch ex As Exception
@@ -104,7 +102,14 @@ Public Class Main
         End Try
     End Function
 
+    ''' <summary>Reloads the grid for the selected night, or every date when Show All is in effect, and reloads both Energyspace lists.</summary>
     Public Async Function UpdateDataGridView() As Task
+        Await ReloadBookingsAsync(_keepDateFilter)
+    End Function
+
+    Private _keepDateFilter As Boolean = True
+
+    Private Async Function ReloadBookingsAsync(applyDateFilter As Boolean) As Task
         _bindingGrid = True
         Try
             Dim rows = Await AppServices.Bookings.GetAllAsync()
@@ -114,6 +119,7 @@ Public Class Main
         Finally
             _bindingGrid = False
         End Try
+        If applyDateFilter Then FilterData()
         Await RefreshUnitListsAsync()
     End Function
 
@@ -147,8 +153,7 @@ Public Class Main
         End If
         Try
             Await AppServices.Bookings.DeleteByStudentIdAsync(studentID)
-            DataGridView1.Rows.Remove(selectedRow)
-            Await RefreshUnitListsAsync()
+            Await UpdateDataGridView()
         Catch ex As Exception
             MessageBox.Show("Could not delete from SharePoint: " & ex.Message, "Delete failed", MessageBoxButtons.OK, MessageBoxIcon.Error)
         End Try
@@ -219,8 +224,8 @@ Public Class Main
 
     Private Async Sub DateTimePicker1_ValueChanged(sender As Object, e As EventArgs) Handles DateTimePicker1.ValueChanged
         If Not _ready Then Return
-        FilterData()
-        Await RefreshUnitListsAsync()
+        _keepDateFilter = True
+        Await ReloadBookingsAsync(applyDateFilter:=True)
     End Sub
     Public Sub FilterData()
         Dim selectedDate As Date = DateTimePicker1.Value.Date
@@ -232,8 +237,8 @@ Public Class Main
     End Sub
 
     Private Async Sub Button8_Click(sender As Object, e As EventArgs) Handles Button8.Click
-        ' Show all data in the DataGridView
-        Await UpdateDataGridView()
+        _keepDateFilter = False
+        Await ReloadBookingsAsync(applyDateFilter:=False)
     End Sub
     Private Sub ExportToExcel(dataGridView As DataGridView, exportDate As DateTime, columnsToHide As List(Of String), columnWidths As Dictionary(Of String, Integer))
         Dim dateString As String = exportDate.ToString("dd-MM-yyyy")
@@ -255,7 +260,7 @@ Public Class Main
                 Next
 
                 ' Define the desired order of column headers
-                Dim desiredOrderHeaders As String() = {"Student ID", "Student Firstname", "Student Surname", "Student Email", "Unit", "Unit Name", "Blockgroup", "AllocatedTeacher", "AllocatedTeacherEmail", "AttemptNo", "Resit date", "EnergyspaceCreated", "EnergyspaceAssessmentBooked", "status", "Attendance", "Mark", "Pass/Fail"} ' Adjust with your desired order
+                Dim desiredOrderHeaders As String() = {"Student ID", "Student Firstname", "Surname", "Email", "Unit", "Unit Name", "Blockgroup", "AllocatedTeacher", "AllocatedTeacher email", "AttemptNo", "Resit date", "EnergyspaceClassCreated", "EnergyspaceAssessmentBooked", "status", "Attendance", "Mark", "Pass/Fail"}
 
                 ' Sort the mapping based on the desired order of column headers
                 Dim sortedMap = headerIndexMap.OrderBy(Function(x) Array.IndexOf(desiredOrderHeaders, x.Key))
@@ -414,17 +419,17 @@ Public Class Main
     End Sub
 
     Private Sub Button9_Click(sender As Object, e As EventArgs) Handles Button9.Click
-        Dim columnsToHide As New List(Of String) From {"status", "EnergyspaceCreated", "EnergyspaceAssessmentBooked"}
+        Dim columnsToHide As New List(Of String) From {"status", "EnergyspaceClassCreated", "EnergyspaceAssessmentBooked"}
         Dim columnWidths As New Dictionary(Of String, Integer) From {
             {"Student ID", 16},
             {"Student Firstname", 22},
-            {"Student Surname", 22},
-            {"Student Email", 30},
+            {"Surname", 22},
+            {"Email", 30},
             {"Unit", 26},
             {"Unit Name", 75},
             {"Blockgroup", 28},
             {"AllocatedTeacher", 20},
-            {"AllocatedTeacherEmail", 30},
+            {"AllocatedTeacher email", 30},
             {"AttemptNo", 14},
             {"Resit date", 26},
             {"Attendance", 14},
@@ -452,11 +457,6 @@ Public Class Main
         MessageBox.Show("All resit records older than 14 days have been deleted.", "Done", MessageBoxButtons.OK, MessageBoxIcon.Information)
     End Sub
 
-    Private Async Sub Button6_Click(sender As Object, e As EventArgs) Handles Button6.Click
-        ' Reset All reloads the grid and both unit lists and does not reapply the date filter.
-        ' Frank asked to keep this until he confirms a change.
-        Await UpdateDataGridView()
-    End Sub
     Private Async Function RefreshUnitListsAsync() As Task
         If AppServices.Bookings Is Nothing Then Return
         Dim flags As IReadOnlyList(Of UnitNightFlags)
@@ -490,7 +490,7 @@ Public Class Main
         Dim night = DateTimePicker1.Value.Date
         Try
             Await AppServices.Bookings.SetEnergyspaceCreatedAsync(night, unit, e.Item.Checked)
-            UpdateGridFlag(unit, "EnergyspaceCreated", e.Item.Checked)
+            UpdateGridFlag(unit, "EnergyspaceClassCreated", e.Item.Checked)
         Catch ex As Exception
             RevertCheck(e.Item)
             MessageBox.Show("An error occurred: " & ex.Message)
@@ -505,11 +505,12 @@ Public Class Main
         Return False
     End Function
 
-    ''' <summary>Show Export to Excel and Resit Login Details when ListView1 or ListView2 has a ticked row.</summary>
+    ''' <summary>Excel when either Energyspace list is ticked. The Word sheet only when Class Created is ticked.</summary>
     Private Sub UpdateResitExportButtonsVisibility()
-        Dim show = ListViewHasAnyChecked(ListView1) OrElse ListViewHasAnyChecked(ListView2)
-        Button9.Visible = show
-        Button12.Visible = show
+        Dim classCreated = ListViewHasAnyChecked(ListView1)
+        Dim assessmentBooked = ListViewHasAnyChecked(ListView2)
+        Button9.Visible = ResitOutputVisibility.ShowExcel(classCreated, assessmentBooked)
+        Button12.Visible = ResitOutputVisibility.ShowLoginSheet(classCreated)
     End Sub
 
     Private Async Sub ListView2_ItemChecked(sender As Object, e As ItemCheckedEventArgs) Handles ListView2.ItemChecked
@@ -570,22 +571,13 @@ Public Class Main
         End Try
     End Sub
 
-    ''' <summary>Builds lines like CD0044-RESIT-CERTIII-2026 from ListView2 — only items with the checkbox ticked.</summary>
+    ''' <summary>Builds lines like CD0044-RESIT-CERTIII-2026 from ListView1 (Energyspace Class Created) only.</summary>
     Private Function BuildResitClassGroupLines(listView As ListView, certYear As Integer) As String
-        Dim lines As New List(Of String)
+        Dim ticked As New List(Of String)
         For Each item As ListViewItem In listView.Items
-            If Not item.Checked Then Continue For
-            Dim u = item.Text.Trim()
-            If u.Length > 0 Then
-                Dim abbrev = UnitCodeAbbreviation.ToAbbreviatedClassCode(u)
-                lines.Add(abbrev & "-RESIT-CERTIII-" & certYear.ToString())
-            End If
+            If item.Checked Then ticked.Add(item.Text)
         Next
-        lines.Sort(StringComparer.OrdinalIgnoreCase)
-        If lines.Count = 0 Then
-            Return "(no class groups selected — tick the units under Energyspace Assessment Booked to include them here)"
-        End If
-        Return String.Join(vbCrLf, lines)
+        Return ResitClassGroups.Build(ticked, certYear)
     End Function
 
     ''' <summary>
@@ -621,7 +613,7 @@ Public Class Main
         If sfd.ShowDialog(Me) <> DialogResult.OK Then Return
 
         Dim certYear = DateTimePicker1.Value.Year
-        Dim classGroupsBlock = BuildResitClassGroupLines(ListView2, certYear)
+        Dim classGroupsBlock = BuildResitClassGroupLines(ListView1, certYear)
         Dim resitNightLong As String = DateTimePicker1.Value.ToString("D")
 
         Dim wordApp As Object = WordDocInterop.TryCreateWordApplication()
@@ -704,8 +696,6 @@ Public Class Main
             Dim msg = Await importer.PullAsync(DateTimePicker1.Value.Date)
             MessageBox.Show(msg, "Pull from Bookings", MessageBoxButtons.OK, MessageBoxIcon.Information)
             Await UpdateDataGridView()
-            FilterData()
-            UpdateResitExportButtonsVisibility()
         Catch ex As Exception
             MessageBox.Show(ex.Message, "Pull from Bookings", MessageBoxButtons.OK, MessageBoxIcon.Error)
         Finally

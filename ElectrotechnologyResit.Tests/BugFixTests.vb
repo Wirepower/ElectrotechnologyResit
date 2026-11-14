@@ -240,26 +240,101 @@ Public Class LookupCacheTests
         Dim client As New RecordingSharePointClient()
         Dim existing As New ListItemRecord With {.Id = "item-1", .Fields = New FieldBag()}
         existing.Fields.SetString(SharePointColumns.StudentId, "9000004")
-        existing.Fields.SetBool(SharePointColumns.EnergyspaceCreated, True)
+        existing.Fields.SetBool(SharePointColumns.EnergyspaceClassCreated, True)
         existing.Fields.SetBool(SharePointColumns.EnergyspaceAssessmentBooked, True)
         existing.Fields.SetString(SharePointColumns.Unit, "UEECD0044")
         existing.Fields.SetString(SharePointColumns.ResitDate, "2026-11-03")
         client.Items.Add(existing)
-        Dim service As New SharePointBookingService(client, SharePointListNames.Default())
+        Dim teachers As New InMemoryResitStore()
+        Await teachers.UpsertAsync(New TeacherRecord With {.FullName = "Jordan Hale", .Email = "jordan.hale@example.com"})
+        Dim service As New SharePointBookingService(client, SharePointListNames.Default(), teachers)
         Dim incoming = New ResitBooking With {
             .StudentId = "9000004",
             .UnitCode = "UETDRRF004",
             .ResitDate = New Date(2026, 11, 10),
             .EnergyspaceCreated = False,
             .EnergyspaceAssessmentBooked = False,
-            .TeacherName = "Jordan Hale"
+            .TeacherName = "Jordan Hale",
+            .TeacherEmail = "stale.previous.teacher@example.com"
         }
         Dim result = Await service.UpsertAsync(incoming, preserveEnergyspaceFlags:=True)
         Assert.True(result.Booking.EnergyspaceCreated)
         Assert.True(result.Booking.EnergyspaceAssessmentBooked)
         Assert.Equal("UETDRRF004", result.Booking.UnitCode)
+        Assert.Equal("jordan.hale@example.com", result.Booking.TeacherEmail)
+        Assert.Equal("jordan.hale@example.com", client.LastText(SharePointColumns.AllocatedTeacherEmail))
         Assert.Empty(client.LastFlags)
         Assert.Equal("UETDRRF004", client.LastText(SharePointColumns.Unit))
+    End Function
+
+    <Fact>
+    Public Async Function Changing_the_teacher_replaces_the_email_from_the_teachers_list() As Task
+        Dim store As New InMemoryResitStore()
+        Await store.UpsertAsync(New TeacherRecord With {.FullName = "Jordan Hale", .Email = "jordan.hale@example.com"})
+        Await store.UpsertAsync(New TeacherRecord With {.FullName = "Morgan Ellis", .Email = "morgan.ellis@example.com"})
+        Dim night = New Date(2026, 11, 3)
+        Await store.UpsertAsync(Booking("9000001", "UEECD0044", night), False)
+
+        Dim changed = Booking("9000001", "UEECD0044", night)
+        changed.TeacherName = "Morgan Ellis"
+        changed.TeacherEmail = "jordan.hale@example.com"
+        Dim updated = Await store.UpsertAsync(changed, False)
+        Assert.Equal("Morgan Ellis", updated.Booking.TeacherName)
+        Assert.Equal("morgan.ellis@example.com", updated.Booking.TeacherEmail)
+
+        changed.TeacherName = "Jordan Hale"
+        changed.TeacherEmail = "typed-by-hand@example.com"
+        updated = Await store.UpsertAsync(changed, False)
+        Assert.Equal("jordan.hale@example.com", updated.Booking.TeacherEmail)
+
+        changed.TeacherName = "Nobody Known"
+        changed.TeacherEmail = "morgan.ellis@example.com"
+        updated = Await store.UpsertAsync(changed, False)
+        Assert.Equal("", updated.Booking.TeacherEmail)
+    End Function
+
+    <Fact>
+    Public Sub Grid_columns_match_the_live_resit_screen()
+        Dim table = BookingTable.FromBookings(Nothing)
+        Assert.Equal(BookingTable.Headers.Length, table.Columns.Count)
+        For index = 0 To BookingTable.Headers.Length - 1
+            Assert.Equal(BookingTable.Headers(index), table.Columns(index).ColumnName)
+        Next
+        Dim spec = SharePointListSchema.Build(SharePointListNames.Default()).Single(Function(list) list.DisplayName = "ResitBookings")
+        Assert.Equal(BookingTable.Headers.Length, spec.Columns.Count)
+        For Each header In BookingTable.Headers
+            Assert.Contains(spec.Columns, Function(column) column.DisplayName = header)
+        Next
+        Assert.DoesNotContain(spec.Columns, Function(column) column.Name = "TeacherEmailSent" OrElse column.DisplayName = "TeacherEmailSent")
+    End Sub
+
+    <Fact>
+    Public Sub Word_class_groups_come_from_class_created_ticks_only()
+        Dim block = ResitClassGroups.Build(New String() {"UEEEL0021", "UEECD0044"}, 2026)
+        Assert.Equal("CD0044-RESIT-CERTIII-2026" & vbCrLf & "L0021-RESIT-CERTIII-2026", block)
+        Assert.Equal(UnitCodeAbbreviation.EmptySelectionText, ResitClassGroups.Build(Array.Empty(Of String)(), 2026))
+        Assert.Contains("Energyspace Class Created", UnitCodeAbbreviation.EmptySelectionText)
+        Assert.False(ResitOutputVisibility.ShowLoginSheet(False))
+        Assert.True(ResitOutputVisibility.ShowLoginSheet(True))
+        Assert.True(ResitOutputVisibility.ShowExcel(False, True))
+        Assert.True(ResitOutputVisibility.ShowExcel(True, False))
+        Assert.False(ResitOutputVisibility.ShowExcel(False, False))
+    End Sub
+
+    Private Shared Function Booking(studentId As String, unitCode As String, night As Date) As ResitBooking
+        Return New ResitBooking With {
+            .StudentId = studentId,
+            .FirstName = "Alex",
+            .Surname = "Nguyen",
+            .Email = "alex.nguyen@example.com",
+            .UnitCode = unitCode,
+            .UnitName = "Sample unit",
+            .BlockGroup = "BG-A",
+            .TeacherName = "Jordan Hale",
+            .TeacherEmail = "jordan.hale@example.com",
+            .AttemptNo = "1",
+            .ResitDate = night
+        }
     End Function
 
     Private Shared Function Item(studentId As String, given As String, family As String) As ListItemRecord

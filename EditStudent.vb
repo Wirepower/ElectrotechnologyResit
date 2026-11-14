@@ -48,12 +48,12 @@ Public Class EditStudent
             If row IsNot Nothing AndAlso Not row.IsNewRow Then
                 TextBox2.Text = CellText(row, "Student ID")
                 TextBox3.Text = CellText(row, "Student Firstname")
-                TextBox4.Text = CellText(row, "Student Surname")
-                TextBox5.Text = CellText(row, "Student Email")
+                TextBox4.Text = CellText(row, "Surname")
+                TextBox5.Text = CellText(row, "Email")
                 ComboBox1.Text = CellText(row, "AllocatedTeacher")
                 ComboBox2.Text = CellText(row, "Unit")
                 ComboBox3.Text = CellText(row, "AttemptNo")
-                ComboBox5.Text = If(YesNoBoolean.Parse(CellText(row, "EnergyspaceCreated")), "True", "False")
+                ComboBox5.Text = If(YesNoBoolean.Parse(CellText(row, "EnergyspaceClassCreated")), "True", "False")
                 ComboBox4.Text = If(YesNoBoolean.Parse(CellText(row, "EnergyspaceAssessmentBooked")), "True", "False")
                 txtBlockgroup.Text = CellText(row, "Blockgroup")
                 lblUnit.Text = CellText(row, "Unit Name")
@@ -109,14 +109,14 @@ Public Class EditStudent
 
             row.Cells("Student ID").Value = TextBox2.Text
             row.Cells("Student Firstname").Value = TextBox3.Text
-            row.Cells("Student Surname").Value = TextBox4.Text
-            row.Cells("Student Email").Value = TextBox5.Text
+            row.Cells("Surname").Value = TextBox4.Text
+            row.Cells("Email").Value = TextBox5.Text
             row.Cells("AllocatedTeacher").Value = ComboBox1.Text
-            row.Cells("AllocatedTeacherEmail").Value = teacherEmail
+            row.Cells("AllocatedTeacher email").Value = teacherEmail
             row.Cells("Unit").Value = ComboBox2.Text
             row.Cells("Unit Name").Value = unitTitle
             row.Cells("AttemptNo").Value = ComboBox3.Text
-            row.Cells("EnergyspaceCreated").Value = energySpaceCreated
+            row.Cells("EnergyspaceClassCreated").Value = energySpaceCreated
             row.Cells("EnergyspaceAssessmentBooked").Value = energySpaceAssessmentBooked
             row.Cells("Resit date").Value = DateTimePicker1.Value.Date
             row.Cells("Blockgroup").Value = txtBlockgroup.Text
@@ -137,6 +137,8 @@ Public Class EditStudent
                 .BlockGroup = txtBlockgroup.Text
             }
             Await AppServices.Bookings.UpsertAsync(booking, preserveEnergyspaceFlags:=False)
+            Dim mainForm As Main = TryCast(Application.OpenForms("Main"), Main)
+            If mainForm IsNot Nothing Then Await mainForm.UpdateDataGridView()
             MessageBox.Show("Data updated successfully.")
         Catch ex As Exception
             MessageBox.Show("Error updating data: " & ex.Message)

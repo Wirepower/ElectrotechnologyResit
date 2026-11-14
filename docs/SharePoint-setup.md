@@ -66,22 +66,24 @@ Display names are the defaults. Settings can change the list display names. Colu
 
 One row per student ID. A second save updates that row. It is not one row per student per unit per night.
 
-| Internal name | Display name | Type | Index | Unique |
+The grid shows these columns, in this order. SharePoint display names match them. There is no TeacherEmailSent column. The allocated teacher email is not edited on its own: a save always copies it from the selected teacher in the Teachers list.
+
+| Internal name | Display name (grid header) | Type | Index | Unique |
 | --- | --- | --- | --- | --- |
 | StudentID | Student ID | Single line of text | Yes | Yes |
-| StudentFirstname | Student Firstname | Single line of text | | |
-| StudentSurname | Student Surname | Single line of text | | |
-| StudentEmail | Student Email | Single line of text | | |
 | Unit | Unit | Single line of text | | |
-| UnitName | Unit Name | Single line of text | | |
-| Blockgroup | Blockgroup | Single line of text | | |
-| AllocatedTeacher | Allocated Teacher | Single line of text | | |
-| AllocatedTeacherEmail | Allocated Teacher Email | Single line of text | | |
-| AttemptNo | Attempt No | Single line of text | | |
 | ResitDate | Resit date | Date only | Yes | |
-| EnergyspaceCreated | Energyspace Created | Yes/No | | |
-| EnergyspaceAssessmentBooked | Energyspace Assessment Booked | Yes/No | | |
+| Blockgroup | Blockgroup | Single line of text | | |
+| AllocatedTeacher | AllocatedTeacher | Single line of text | | |
 | Status | status | Single line of text | | |
+| AllocatedTeacherEmail | AllocatedTeacher email | Single line of text | | |
+| EnergyspaceClassCreated | EnergyspaceClassCreated | Yes/No | | |
+| EnergyspaceAssessmentBooked | EnergyspaceAssessmentBooked | Yes/No | | |
+| AttemptNo | AttemptNo | Single line of text | | |
+| StudentFirstname | Student Firstname | Single line of text | | |
+| Surname | Surname | Single line of text | | |
+| Email | Email | Single line of text | | |
+| UnitName | Unit Name | Single line of text | | |
 
 `ResitDate` is the Australia/Melbourne calendar date. The app writes `yyyy-MM-dd` and reads the date part back without shifting it through UTC.
 
@@ -129,8 +131,9 @@ These are progress checkpoints for a unit on a night, not a per-student mark.
 - **Energyspace Assessment Booked** means the assessment was scheduled after students were added.
 - The box is ticked when the lists load only if every booking for that unit and that date is true.
 - Unticking clears the flag for that unit and that night.
-- Export to Excel and Resit Login Details appear once any unit is ticked.
-- The Word class-group block uses only the Assessment Booked ticks.
+- Export to Excel appears when either Energyspace list has a tick.
+- Resit Login Details appears only when at least one unit is ticked under Energyspace Class Created.
+- The Word {{CLASS_GROUPS}} block uses only those Class Created ticks. If none are ticked, the sheet says to tick units under Energyspace Class Created.
 - Pull from Bookings, if it is ever turned on, updates the booking but leaves both flags as they were.
 
 ## Import files
@@ -156,7 +159,7 @@ Do not put real student data in this repository, in tests, or in logs.
 3. Run the wizard again and confirm it does not duplicate or delete anything.
 4. Add, edit and delete a booking; one student ID stays one row.
 5. Tick and untick Energyspace for a unit, close and reopen that date, and confirm the saved state comes back. Confirm a Bookings import does not clear flags (only if that hidden button is deliberately turned on).
-6. Export to Excel and the Word login sheet after a tick. Class groups should follow Assessment Booked only.
+6. Export to Excel after a tick on either Energyspace list. The Word login sheet, and its class groups, only after a Class Created tick.
 7. Teacher email on Edit saves the address of the teacher who is selected, including when the teacher combo was only loaded and not clicked again.
 8. Email mode: exactly one of **Display & Send Manually** and **Send Email - Do Not Display**.
 9. Outlook message text, ordinal date (for example `3rd November, 2026`, and `11th`, `12th`, `13th`), sent on behalf of Electrotechnology.admin@vu.edu.au, with the signature image when one is in the library.
@@ -167,7 +170,6 @@ Do not put real student data in this repository, in tests, or in logs.
 
 ## Still for Frank to decide
 
-- **Reset All** still reloads the grid and both unit lists and does not put the date filter back. Show All is unchanged. Say if that should keep the selected night instead.
 - **Edit Student** accepts Yes, No, True and False in `YesNoBoolean`. That is the only place the rule lives, so it can be changed without hunting through the forms.
 - Whether IT will approve `Sites.Manage.All` plus `Sites.ReadWrite.All`, or `Sites.Selected` with permission to create lists on the site.
 - Whether live Microsoft Bookings should ever be switched on. Until then the button stays hidden.

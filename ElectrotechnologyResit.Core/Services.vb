@@ -46,39 +46,56 @@ Namespace ElectrotechnologyResit.Core
         Private Sub New()
         End Sub
 
+        Public Shared ReadOnly Headers As String() = {
+            "Student ID",
+            "Unit",
+            "Resit date",
+            "Blockgroup",
+            "AllocatedTeacher",
+            "status",
+            "AllocatedTeacher email",
+            "EnergyspaceClassCreated",
+            "EnergyspaceAssessmentBooked",
+            "AttemptNo",
+            "Student Firstname",
+            "Surname",
+            "Email",
+            "Unit Name"
+        }
+
         Public Shared Function FromBookings(rows As IEnumerable(Of ResitBooking)) As DataTable
             Dim table As New DataTable()
             table.Columns.Add("Student ID", GetType(String))
-            table.Columns.Add("Student Firstname", GetType(String))
-            table.Columns.Add("Student Surname", GetType(String))
-            table.Columns.Add("Student Email", GetType(String))
             table.Columns.Add("Unit", GetType(String))
-            table.Columns.Add("Unit Name", GetType(String))
+            table.Columns.Add("Resit date", GetType(Date))
             table.Columns.Add("Blockgroup", GetType(String))
             table.Columns.Add("AllocatedTeacher", GetType(String))
-            table.Columns.Add("AllocatedTeacherEmail", GetType(String))
-            table.Columns.Add("AttemptNo", GetType(String))
-            table.Columns.Add("Resit date", GetType(Date))
-            table.Columns.Add("EnergyspaceCreated", GetType(Boolean))
-            table.Columns.Add("EnergyspaceAssessmentBooked", GetType(Boolean))
             table.Columns.Add("status", GetType(String))
+            table.Columns.Add("AllocatedTeacher email", GetType(String))
+            table.Columns.Add("EnergyspaceClassCreated", GetType(Boolean))
+            table.Columns.Add("EnergyspaceAssessmentBooked", GetType(Boolean))
+            table.Columns.Add("AttemptNo", GetType(String))
+            table.Columns.Add("Student Firstname", GetType(String))
+            table.Columns.Add("Surname", GetType(String))
+            table.Columns.Add("Email", GetType(String))
+            table.Columns.Add("Unit Name", GetType(String))
             If rows Is Nothing Then Return table
             For Each booking In rows
                 table.Rows.Add(
                     booking.StudentId,
+                    booking.UnitCode,
+                    booking.ResitDate.Date,
+                    booking.BlockGroup,
+                    booking.TeacherName,
+                    If(booking.Status, ""),
+                    booking.TeacherEmail,
+                    booking.EnergyspaceCreated,
+                    booking.EnergyspaceAssessmentBooked,
+                    booking.AttemptNo,
                     booking.FirstName,
                     booking.Surname,
                     booking.Email,
-                    booking.UnitCode,
-                    booking.UnitName,
-                    booking.BlockGroup,
-                    booking.TeacherName,
-                    booking.TeacherEmail,
-                    booking.AttemptNo,
-                    booking.ResitDate.Date,
-                    booking.EnergyspaceCreated,
-                    booking.EnergyspaceAssessmentBooked,
-                    If(booking.Status, ""))
+                    booking.UnitName)
             Next
             Return table
         End Function
@@ -112,7 +129,7 @@ Namespace ElectrotechnologyResit.Core
             If id.Length = 0 Then Throw New ArgumentException("A student ID is required.")
             Dim existing As ResitBooking = Nothing
             _bookings.TryGetValue(id, existing)
-            Dim merged = BookingUpsert.Merge(existing, booking, preserveEnergyspaceFlags)
+            Dim merged = BookingUpsert.Merge(existing, booking, preserveEnergyspaceFlags, _teachers.Values)
             If String.IsNullOrEmpty(merged.SharePointItemId) Then merged.SharePointItemId = Guid.NewGuid().ToString("N")
             _bookings(id) = merged
             Return Task.FromResult(New UpsertResult With {

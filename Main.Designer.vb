@@ -28,7 +28,6 @@ Partial Class Main
         Button4 = New Button()
         Button5 = New Button()
         DataGridView1 = New DataGridView()
-        Button6 = New Button()
         Button7 = New Button()
         Label1 = New Label()
         Label2 = New Label()
@@ -106,15 +105,6 @@ Partial Class Main
         DataGridView1.ReadOnly = True
         DataGridView1.Size = New Size(1455, 391)
         DataGridView1.TabIndex = 6
-        ' 
-        ' Button6
-        ' 
-        Button6.Location = New Point(32, 684)
-        Button6.Name = "Button6"
-        Button6.Size = New Size(127, 66)
-        Button6.TabIndex = 7
-        Button6.Text = "Reset All"
-        Button6.UseVisualStyleBackColor = True
         ' 
         ' Button7
         ' 
@@ -334,7 +324,6 @@ Partial Class Main
         Controls.Add(Label2)
         Controls.Add(Label1)
         Controls.Add(Button7)
-        Controls.Add(Button6)
         Controls.Add(DataGridView1)
         Controls.Add(Button5)
         Controls.Add(Button4)
@@ -354,7 +343,6 @@ Partial Class Main
     Friend WithEvents Button4 As Button
     Friend WithEvents Button5 As Button
     Friend WithEvents DataGridView1 As DataGridView
-    Friend WithEvents Button6 As Button
     Friend WithEvents Button7 As Button
     Friend WithEvents Label1 As Label
     Friend WithEvents Label2 As Label

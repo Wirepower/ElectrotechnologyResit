@@ -3,8 +3,7 @@ Namespace ElectrotechnologyResit.Core
     Public NotInheritable Class SharePointColumns
         Public Const StudentId As String = "StudentID"
         Public Const StudentFirstname As String = "StudentFirstname"
-        Public Const StudentSurname As String = "StudentSurname"
-        Public Const StudentEmail As String = "StudentEmail"
+        Public Const Surname As String = "Surname"
         Public Const Unit As String = "Unit"
         Public Const UnitName As String = "UnitName"
         Public Const Blockgroup As String = "Blockgroup"
@@ -12,7 +11,7 @@ Namespace ElectrotechnologyResit.Core
         Public Const AllocatedTeacherEmail As String = "AllocatedTeacherEmail"
         Public Const AttemptNo As String = "AttemptNo"
         Public Const ResitDate As String = "ResitDate"
-        Public Const EnergyspaceCreated As String = "EnergyspaceCreated"
+        Public Const EnergyspaceClassCreated As String = "EnergyspaceClassCreated"
         Public Const EnergyspaceAssessmentBooked As String = "EnergyspaceAssessmentBooked"
         Public Const Status As String = "Status"
         Public Const StudentGivenName As String = "StudentGivenName"
@@ -59,19 +58,19 @@ Namespace ElectrotechnologyResit.Core
                 .Template = ListTemplateKind.GenericList,
                 .Columns = New List(Of ColumnSpec) From {
                     TextColumn(SharePointColumns.StudentId, "Student ID", unique:=True),
-                    TextColumn(SharePointColumns.StudentFirstname, "Student Firstname"),
-                    TextColumn(SharePointColumns.StudentSurname, "Student Surname"),
-                    TextColumn(SharePointColumns.StudentEmail, "Student Email"),
                     TextColumn(SharePointColumns.Unit, "Unit"),
-                    TextColumn(SharePointColumns.UnitName, "Unit Name"),
-                    TextColumn(SharePointColumns.Blockgroup, "Blockgroup"),
-                    TextColumn(SharePointColumns.AllocatedTeacher, "Allocated Teacher"),
-                    TextColumn(SharePointColumns.AllocatedTeacherEmail, "Allocated Teacher Email"),
-                    TextColumn(SharePointColumns.AttemptNo, "Attempt No"),
                     New ColumnSpec With {.Name = SharePointColumns.ResitDate, .DisplayName = "Resit date", .Kind = ColumnKind.DateOnly, .Indexed = True},
-                    New ColumnSpec With {.Name = SharePointColumns.EnergyspaceCreated, .DisplayName = "Energyspace Created", .Kind = ColumnKind.YesNo},
-                    New ColumnSpec With {.Name = SharePointColumns.EnergyspaceAssessmentBooked, .DisplayName = "Energyspace Assessment Booked", .Kind = ColumnKind.YesNo},
-                    TextColumn(SharePointColumns.Status, "status")
+                    TextColumn(SharePointColumns.Blockgroup, "Blockgroup"),
+                    TextColumn(SharePointColumns.AllocatedTeacher, "AllocatedTeacher"),
+                    TextColumn(SharePointColumns.Status, "status"),
+                    TextColumn(SharePointColumns.AllocatedTeacherEmail, "AllocatedTeacher email"),
+                    New ColumnSpec With {.Name = SharePointColumns.EnergyspaceClassCreated, .DisplayName = "EnergyspaceClassCreated", .Kind = ColumnKind.YesNo},
+                    New ColumnSpec With {.Name = SharePointColumns.EnergyspaceAssessmentBooked, .DisplayName = "EnergyspaceAssessmentBooked", .Kind = ColumnKind.YesNo},
+                    TextColumn(SharePointColumns.AttemptNo, "AttemptNo"),
+                    TextColumn(SharePointColumns.StudentFirstname, "Student Firstname"),
+                    TextColumn(SharePointColumns.Surname, "Surname"),
+                    TextColumn(SharePointColumns.Email, "Email"),
+                    TextColumn(SharePointColumns.UnitName, "Unit Name")
                 }
             }
         End Function
