@@ -435,6 +435,14 @@ Public Class LookupCacheTests
     End Sub
 
     <Fact>
+    Public Sub Closing_settings_asks_before_discarding_other_changes()
+        Assert.Equal(SettingsCloseAction.CloseWithoutSaving, SettingsClosePrompt.Decide(False, SettingsCloseAnswer.Cancel))
+        Assert.Equal(SettingsCloseAction.SaveAndExit, SettingsClosePrompt.Decide(True, SettingsCloseAnswer.Yes))
+        Assert.Equal(SettingsCloseAction.CloseWithoutSaving, SettingsClosePrompt.Decide(True, SettingsCloseAnswer.No))
+        Assert.Equal(SettingsCloseAction.StayOpen, SettingsClosePrompt.Decide(True, SettingsCloseAnswer.Cancel))
+    End Sub
+
+    <Fact>
     Public Sub Student_forms_drop_the_spare_width_when_lookup_labels_are_hidden()
         Assert.Equal(530, StudentFormWidth.ForLookupLabels(True, 530, 482, 16))
         Assert.Equal(498, StudentFormWidth.ForLookupLabels(False, 530, 482, 16))

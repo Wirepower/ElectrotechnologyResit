@@ -415,8 +415,8 @@ Partial Class Settings
         '
         ' Button1
         '
-        Button1.Anchor = AnchorStyles.Bottom
-        Button1.Location = New Point(586, 832)
+        Button1.Anchor = AnchorStyles.Top Or AnchorStyles.Right
+        Button1.Location = New Point(586, 10)
         Button1.Name = "Button1"
         Button1.Size = New Size(150, 37)
         Button1.TabIndex = 3
@@ -425,19 +425,19 @@ Partial Class Settings
         '
         ' Button2
         '
-        Button2.Anchor = AnchorStyles.Bottom
-        Button2.Location = New Point(381, 832)
+        Button2.Anchor = AnchorStyles.Top Or AnchorStyles.Right
+        Button2.Location = New Point(424, 10)
         Button2.Name = "Button2"
         Button2.Size = New Size(150, 37)
         Button2.TabIndex = 4
-        Button2.Text = "Close without Saving"
+        Button2.Text = "Cancel"
         Button2.UseVisualStyleBackColor = True
         '
         ' Settings
         '
         AutoScaleDimensions = New SizeF(7F, 15F)
         AutoScaleMode = AutoScaleMode.Font
-        AutoScroll = True
+        AutoScroll = False
         ClientSize = New Size(1112, 888)
         Controls.Add(Button2)
         Controls.Add(Button1)

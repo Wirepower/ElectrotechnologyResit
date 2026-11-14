@@ -6,10 +6,15 @@ Public Class Settings
     Private ButtonTestConnection As Button
     Private ButtonImportCsv As Button
     Private CheckBoxShowLookupLabels As CheckBox
+    Private _loading As Boolean
+    Private _dirty As Boolean
+    Private _saving As Boolean
+    Private _wired As Boolean
 
     Private Sub Settings_Load(sender As Object, e As EventArgs) Handles MyBase.Load
         BuildDataSourceControls()
         LoadFields()
+        WireDirtyTracking()
     End Sub
 
     Private Sub BuildDataSourceControls()
@@ -47,6 +52,7 @@ Public Class Settings
         }
         sourceGroup.Controls.Add(qualificationsButton)
         sourceGroup.Controls.Add(CheckBoxShowLookupLabels)
+        AddHandler CheckBoxShowLookupLabels.CheckedChanged, AddressOf LookupLabelsChanged
         AddHandler qualificationsButton.Click, Sub()
                                                     ApplySharePointFields()
                                                     My.Settings.Save()
@@ -80,9 +86,38 @@ Public Class Settings
 
         GroupBoxResitDoc.Top = 508
         GroupBoxBookings.Top = 684
-        Button1.Top = 948
-        Button2.Top = 948
-        If ClientSize.Height < 1000 Then ClientSize = New Size(ClientSize.Width, 1004)
+        InstallDockedButtons()
+    End Sub
+
+    ''' <summary>Buttons stay on the window. Only the settings groups scroll.</summary>
+    Private Sub InstallDockedButtons()
+        AutoScroll = False
+        Dim content As New Panel With {.Dock = DockStyle.Fill, .AutoScroll = True, .Name = "SettingsContent"}
+        Dim buttons As New Panel With {.Dock = DockStyle.Bottom, .Height = 56, .Name = "SettingsButtons"}
+        Dim moving As New List(Of Control)
+        For Each control As Control In Controls
+            If control Is Button1 OrElse control Is Button2 Then Continue For
+            moving.Add(control)
+        Next
+        For Each control In moving
+            Controls.Remove(control)
+            content.Controls.Add(control)
+        Next
+        Controls.Remove(Button1)
+        Controls.Remove(Button2)
+        Button1.Anchor = AnchorStyles.Top Or AnchorStyles.Right
+        Button2.Anchor = AnchorStyles.Top Or AnchorStyles.Right
+        buttons.Controls.Add(Button1)
+        buttons.Controls.Add(Button2)
+        AddHandler buttons.Resize, Sub() PlaceSettingsButtons(buttons)
+        Controls.Add(content)
+        Controls.Add(buttons)
+        PlaceSettingsButtons(buttons)
+    End Sub
+
+    Private Sub PlaceSettingsButtons(panel As Panel)
+        Button1.Location = New Point(Math.Max(12, panel.ClientSize.Width - 12 - Button1.Width), 10)
+        Button2.Location = New Point(Math.Max(12, Button1.Left - 12 - Button2.Width), 10)
     End Sub
 
     Private Sub DataSourceChanged(sender As Object, e As EventArgs)
@@ -91,6 +126,7 @@ Public Class Settings
     End Sub
 
     Private Sub LoadFields()
+        _loading = True
         ComboBoxDataSource.SelectedIndex = If(String.Equals(My.Settings.DataSource, "SharePoint", StringComparison.OrdinalIgnoreCase), 1, 0)
         ButtonResetSample.Visible = ComboBoxDataSource.SelectedIndex = 0
         TextBoxSiteUrl.Text = My.Settings.SharePointSiteUrl
@@ -110,6 +146,55 @@ Public Class Settings
         TextBoxBookingsBusinessId.Text = My.Settings.BookingsBusinessId
         CheckBoxShowPullFromBookingsButton.Checked = My.Settings.ShowPullFromBookingsButton
         CheckBoxShowLookupLabels.Checked = My.Settings.ShowTeacherEmailAndUnitName
+        _loading = False
+        If Not _wired Then _dirty = False
+    End Sub
+
+    Private Sub LookupLabelsChanged(sender As Object, e As EventArgs)
+        If _loading OrElse CheckBoxShowLookupLabels Is Nothing Then Return
+        My.Settings.ShowTeacherEmailAndUnitName = CheckBoxShowLookupLabels.Checked
+        My.Settings.Save()
+    End Sub
+
+    Private Sub WireDirtyTracking()
+        If _wired Then Return
+        _wired = True
+        AddHandler ComboBoxDataSource.SelectedIndexChanged, AddressOf MarkDirty
+        AddHandler TextBoxSiteUrl.TextChanged, AddressOf MarkDirty
+        AddHandler TextBoxGraphClientId.TextChanged, AddressOf MarkDirty
+        AddHandler TextBoxGraphTenant.TextChanged, AddressOf MarkDirty
+        AddHandler CheckBoxSitesSelected.CheckedChanged, AddressOf MarkDirty
+        AddHandler TextBoxBookingsList.TextChanged, AddressOf MarkDirty
+        AddHandler TextBoxStudentsList.TextChanged, AddressOf MarkDirty
+        AddHandler TextBoxTeachersList.TextChanged, AddressOf MarkDirty
+        AddHandler TextBoxUnitsList.TextChanged, AddressOf MarkDirty
+        AddHandler TextBoxSignatureLibrary.TextChanged, AddressOf MarkDirty
+        AddHandler TextBox2.TextChanged, AddressOf MarkDirty
+        AddHandler TextBox3.TextChanged, AddressOf MarkDirty
+        AddHandler CheckBoxResitLoginOpenAfterSave.CheckedChanged, AddressOf MarkDirty
+        AddHandler TextBoxBookingsClientId.TextChanged, AddressOf MarkDirty
+        AddHandler TextBoxBookingsTenant.TextChanged, AddressOf MarkDirty
+        AddHandler TextBoxBookingsBusinessId.TextChanged, AddressOf MarkDirty
+        AddHandler CheckBoxShowPullFromBookingsButton.CheckedChanged, AddressOf MarkDirty
+    End Sub
+
+    Private Sub MarkDirty(sender As Object, e As EventArgs)
+        If _loading Then Return
+        _dirty = True
+    End Sub
+
+    Private Sub Settings_FormClosing(sender As Object, e As FormClosingEventArgs) Handles Me.FormClosing
+        If _saving OrElse Not _dirty Then Return
+        Dim answer = MessageBox.Show("Save changes?", "Settings", MessageBoxButtons.YesNoCancel, MessageBoxIcon.Question)
+        Dim choice = SettingsCloseAnswer.Cancel
+        If answer = DialogResult.Yes Then choice = SettingsCloseAnswer.Yes
+        If answer = DialogResult.No Then choice = SettingsCloseAnswer.No
+        Select Case SettingsClosePrompt.Decide(True, choice)
+            Case SettingsCloseAction.StayOpen
+                e.Cancel = True
+            Case SettingsCloseAction.SaveAndExit
+                SaveAndExit()
+        End Select
     End Sub
 
     Private Sub ApplySharePointFields()
@@ -227,6 +312,12 @@ Public Class Settings
     End Sub
 
     Private Sub Button1_Click(sender As Object, e As EventArgs) Handles Button1.Click
+        SaveAndExit()
+    End Sub
+
+    Private Sub SaveAndExit()
+        _dirty = False
+        _saving = True
         ApplySharePointFields()
         My.Settings.PcLoginMonthlyPassword = TextBox2.Text.Trim()
         My.Settings.ResitLoginWordTemplatePath = TextBox3.Text.Trim()
