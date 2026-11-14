@@ -160,7 +160,7 @@ Partial Class Settings
         CheckBoxSitesSelected.Name = "CheckBoxSitesSelected"
         CheckBoxSitesSelected.Size = New Size(760, 34)
         CheckBoxSitesSelected.TabIndex = 7
-        CheckBoxSitesSelected.Text = "Use Sites.Selected instead of Sites.ReadWrite.All. IT must grant this app write access to the site. Leave this unticked unless that grant is in place, because the wizard has to create lists."
+        CheckBoxSitesSelected.Text = "Use Sites.Selected instead of Sites.ReadWrite.All and Sites.Manage.All. The site grant must allow creating lists, not only editing rows. Leave this unticked unless that grant is in place."
         '
         ' LabelBookingsList
         '

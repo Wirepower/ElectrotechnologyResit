@@ -32,8 +32,7 @@ Public Class MsalTokenProvider
             WithRedirectUri("http://localhost").
             Build()
         BindCache(_pca)
-        Dim siteScope = If(useSitesSelected, "https://graph.microsoft.com/Sites.Selected", "https://graph.microsoft.com/Sites.ReadWrite.All")
-        _scopes = New String() {siteScope, "https://graph.microsoft.com/User.Read"}
+        _scopes = GraphPermissionScopes.ForSharePoint(useSitesSelected)
         _owner = owner
     End Sub
 

@@ -252,6 +252,28 @@ Namespace ElectrotechnologyResit.Core
         End Function
     End Class
 
+    ''' <summary>
+    ''' Delegated Graph scopes for this app.
+    ''' Creating a list or column needs Sites.Manage.All. Reading and writing rows needs Sites.ReadWrite.All.
+    ''' Sites.Selected replaces both, and the site grant itself must allow list management.
+    ''' </summary>
+    Public NotInheritable Class GraphPermissionScopes
+        Public Const ManageAll As String = "https://graph.microsoft.com/Sites.Manage.All"
+        Public Const ReadWriteAll As String = "https://graph.microsoft.com/Sites.ReadWrite.All"
+        Public Const Selected As String = "https://graph.microsoft.com/Sites.Selected"
+        Public Const UserRead As String = "https://graph.microsoft.com/User.Read"
+
+        Private Sub New()
+        End Sub
+
+        Public Shared Function ForSharePoint(useSitesSelected As Boolean) As String()
+            If useSitesSelected Then
+                Return New String() {Selected, UserRead}
+            End If
+            Return New String() {ManageAll, ReadWriteAll, UserRead}
+        End Function
+    End Class
+
     Public NotInheritable Class SharePointSetupValidation
         Private Sub New()
         End Sub

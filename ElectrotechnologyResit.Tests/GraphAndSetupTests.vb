@@ -112,6 +112,20 @@ Public Class GraphAndSetupTests
     End Sub
 
     <Fact>
+    Public Sub Default_sign_in_requests_list_management_and_item_write()
+        Dim scopes = GraphPermissionScopes.ForSharePoint(useSitesSelected:=False)
+        Assert.Contains(GraphPermissionScopes.ManageAll, scopes)
+        Assert.Contains(GraphPermissionScopes.ReadWriteAll, scopes)
+        Assert.Contains(GraphPermissionScopes.UserRead, scopes)
+        Assert.DoesNotContain(GraphPermissionScopes.Selected, scopes)
+
+        Dim selected = GraphPermissionScopes.ForSharePoint(useSitesSelected:=True)
+        Assert.Contains(GraphPermissionScopes.Selected, selected)
+        Assert.DoesNotContain(GraphPermissionScopes.ManageAll, selected)
+        Assert.DoesNotContain(GraphPermissionScopes.ReadWriteAll, selected)
+    End Sub
+
+    <Fact>
     Public Sub Setup_validation_rejects_a_blank_site_and_duplicate_names()
         Assert.Null(SharePointSetupValidation.Validate("https://contoso.sharepoint.com/sites/Electro", "app-id", SharePointListNames.Default()))
         Assert.NotNull(SharePointSetupValidation.Validate("http://contoso.sharepoint.com/sites/Electro", "app-id", SharePointListNames.Default()))

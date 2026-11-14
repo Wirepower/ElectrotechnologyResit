@@ -117,7 +117,7 @@ Public Class SetupWizard
             .AutoSize = True,
             .Location = New Point(8, 116),
             .MaximumSize = New Size(660, 0),
-            .Text = "Use Sites.Selected instead of Sites.ReadWrite.All. Leave this unticked unless IT has already granted this app write access to the site."
+            .Text = "Use Sites.Selected instead of Sites.ReadWrite.All and Sites.Manage.All. Leave this unticked unless IT has granted this app permission to create lists on the site, not only to edit rows."
         }
         page.Controls.Add(chkSelected)
         page.Controls.Add(FieldLabel("Resit bookings list", 168))

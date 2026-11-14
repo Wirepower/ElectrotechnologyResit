@@ -34,10 +34,11 @@ Delegated Microsoft Graph permissions:
 | Permission | When |
 | --- | --- |
 | `User.Read` | Always. Identifies the signed-in person. |
-| `Sites.ReadWrite.All` | Default. Needed so the wizard can create lists and the night screen can read and write rows. |
-| `Sites.Selected` | Optional. Tick **Use Sites.Selected** only after an administrator has granted this app write access to the one site. Without that grant, sign-in can succeed and list creation can still fail. |
+| `Sites.Manage.All` | Default. Required to create lists and columns (`POST /sites/{id}/lists` and `POST .../columns`). `Sites.ReadWrite.All` cannot do that. |
+| `Sites.ReadWrite.All` | Default. Required to read and write booking rows and the signature image. |
+| `Sites.Selected` | Optional. Tick **Use Sites.Selected** only after an administrator has granted this app permission to create lists on that one site, not only to edit rows. Without that grant, sign-in can succeed and list creation can still fail. |
 
-Admin consent is required for `Sites.ReadWrite.All` in most tenants. Frank and IT need to choose which permission to approve. The app does not request application (app-only) permissions.
+The default sign-in requests `Sites.Manage.All`, `Sites.ReadWrite.All` and `User.Read` together. Admin consent is often required. Frank and IT need to choose that pair, or a `Sites.Selected` grant that includes list management. The app does not request application (app-only) permissions.
 
 The application (client) ID and tenant ID are typed into Settings or the wizard. They are not stored in this repository.
 
@@ -49,7 +50,7 @@ These are Windows user settings. They are not written to SharePoint.
 
 - SharePoint site URL
 - Application (client) ID and directory (tenant) ID
-- Whether to request `Sites.Selected`
+- Whether to request `Sites.Selected` instead of `Sites.Manage.All` and `Sites.ReadWrite.All`
 - List names (defaults below)
 - Monthly PC/lab password, typed by the operator. There is no default. It is inserted into the Word login sheet only.
 - Word template path, and whether to open the document after save
@@ -150,7 +151,7 @@ Do not put real student data in this repository, in tests, or in logs.
 
 ## What Frank needs to test
 
-1. App registration, redirect URI `http://localhost`, and admin consent for `Sites.ReadWrite.All` and `User.Read` (or a real `Sites.Selected` grant, if that option is chosen).
+1. App registration, redirect URI `http://localhost`, and consent for `Sites.Manage.All`, `Sites.ReadWrite.All` and `User.Read` (or a real `Sites.Selected` grant that can create lists, if that option is chosen).
 2. First-run wizard against the real site: sign-in, site check, lists and columns created, Student ID unique, Resit date indexed.
 3. Run the wizard again and confirm it does not duplicate or delete anything.
 4. Add, edit and delete a booking; one student ID stays one row.
@@ -168,5 +169,5 @@ Do not put real student data in this repository, in tests, or in logs.
 
 - **Reset All** still reloads the grid and both unit lists and does not put the date filter back. Show All is unchanged. Say if that should keep the selected night instead.
 - **Edit Student** accepts Yes, No, True and False in `YesNoBoolean`. That is the only place the rule lives, so it can be changed without hunting through the forms.
-- Whether IT will approve `Sites.ReadWrite.All` or `Sites.Selected`.
+- Whether IT will approve `Sites.Manage.All` plus `Sites.ReadWrite.All`, or `Sites.Selected` with permission to create lists on the site.
 - Whether live Microsoft Bookings should ever be switched on. Until then the button stays hidden.
